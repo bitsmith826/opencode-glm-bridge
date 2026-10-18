@@ -1,0 +1,36 @@
+{
+  "port": 8318,
+  "host": "127.0.0.1",
+  "upstreamUrl": "https://opencode.ai",
+  "proxy": "",
+  "supportedModels": [
+    {
+      "id": "glm-5.3-flash-free",
+      "upstreamId": "glm-5.3-flash-free",
+      "name": "GLM 5.3 Flash (Free Frontier)",
+      "contextWindow": 200000,
+      "maxOutput": 32768
+    },
+    {
+      "id": "glm-5.3",
+      "upstreamId": "glm-5.3-flash-free",
+      "name": "GLM 5.3 Flash (Alias)",
+      "contextWindow": 200000,
+      "maxOutput": 32768
+    },
+    {
+      "id": "deepseek-v4.1-flash-free",
+      "upstreamId": "deepseek-v4.1-flash-free",
+      "name": "DeepSeek V4.1 Flash (Free)",
+      "contextWindow": 1000000,
+      "maxOutput": 384000
+    },
+    {
+      "id": "deepseek",
+      "upstreamId": "deepseek-v4.1-flash-free",
+      "name": "DeepSeek V4.1 Flash (Alias)",
+      "contextWindow": 1000000,
+      "maxOutput": 384000
+    }
+  ]
+}
