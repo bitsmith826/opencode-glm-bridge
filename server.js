@@ -31,6 +31,18 @@ if (fs.existsSync(configPath)) {
   }
 }
 
+// 1.1 Load Local Override (config.local.json) if present
+const localConfigPath = path.join(__dirname, 'config.local.json');
+if (fs.existsSync(localConfigPath)) {
+  try {
+    const rawLocal = fs.readFileSync(localConfigPath, 'utf8');
+    config = { ...config, ...JSON.parse(rawLocal) };
+    console.log('[Config] Loaded local override from config.local.json');
+  } catch (err) {
+    console.warn('[Config Warning] Failed to parse config.local.json:', err.message);
+  }
+}
+
 const PORT = parseInt(process.env.PORT || config.port || 8318, 10);
 const HOST = process.env.HOST || config.host || '127.0.0.1';
 const PROXY_URL = process.env.OPENCODE_PROXY || config.proxy || '';

@@ -57,11 +57,14 @@ Jika Anda ingin koneksi yang 100% stabil, bebas error 403, dan bebas rate limit 
    };
    ```
 7. Klik tombol **Save and deploy**. Anda akan mendapatkan URL publik Worker (contoh: `https://my-opencode-relay.namaanda.workers.dev`).
-8. Buka file `config.json` di folder bridge ini menggunakan Notepad, lalu ubah baris `"upstreamUrl"` (gunakan awalan `http://`):
+8. Buat file baru bernama `config.local.json` di folder ini, lalu isi URL Worker Anda (gunakan awalan `http://`):
    ```json
-   "upstreamUrl": "http://my-opencode-relay.namaanda.workers.dev"
+   {
+     "upstreamUrl": "http://my-opencode-relay.namaanda.workers.dev"
+   }
    ```
-9. Simpan file `config.json`, lalu jalankan ulang `start-windows.bat`. Selesai!
+   *(File `config.local.json` otomatis diprioritaskan oleh server dan diabaikan oleh Git, sehingga data pribadi Anda aman dari commit GitHub)*.
+9. Jalankan ulang `start-windows.bat`. Selesai!
 
 ---
 
