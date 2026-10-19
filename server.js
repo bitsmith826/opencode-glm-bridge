@@ -85,6 +85,43 @@ function getOrCreateSession(key = 'opencode_global') {
   return genSessionID();
 }
 
+// 2. Upstream Resilience & Retry Policy (Decompiled from OpenCode v2 SessionRetry)
+const RETRY_CONFIG = {
+  maxRetries: 5,
+  initialDelayMs: 2000,
+  backoffFactor: 2,
+  jitterFactor: 0.25,
+  maxDelayMs: 30000,
+  retryableStatuses: [408, 409, 429, 500, 502, 503, 504, 524],
+  retryablePatterns: [
+    /429|500|502|503|504|524/i,
+    /rate increased too quickly|rate limit|rate-limit|rate_limit|too many requests/i,
+    /overloaded|service unavailable|service_unavailable|service-unavailable|internal error|internal_error|internal server error|server error|server_error|server-error|provider returned error|provider_returned_error|provider-returned-error/i,
+    /terminated|fetch failed|failed to fetch|network[-_\s]error|upstream connect|connection error|connection refused|connection lost|socket connection was closed|socket hang up|reset before headers|getaddrinfo|enotfound|eai_again|econnrefused|econnreset|etimedout/i,
+    /^timeout$|\b(?:request|response|connection|network|stream|read) (?:timeout|timed out|time out)\b/i,
+    /try your request again|retry your request|resource exhausted|resource_exhausted/i,
+    /\btry again (?:later|in\b)|\b(?:currently|temporarily) at capacity\b/i
+  ]
+};
+
+function calculateRetryDelay(attempt, responseHeaders = {}) {
+  const retryAfterMs = responseHeaders['retry-after-ms'];
+  if (retryAfterMs) {
+    const parsed = parseFloat(retryAfterMs);
+    if (!isNaN(parsed)) return Math.min(parsed, RETRY_CONFIG.maxDelayMs);
+  }
+  const retryAfter = responseHeaders['retry-after'];
+  if (retryAfter) {
+    const parsedSec = parseFloat(retryAfter);
+    if (!isNaN(parsedSec)) return Math.min(Math.ceil(parsedSec * 1000), RETRY_CONFIG.maxDelayMs);
+    const parsedDate = Date.parse(retryAfter) - Date.now();
+    if (!isNaN(parsedDate) && parsedDate > 0) return Math.min(Math.ceil(parsedDate), RETRY_CONFIG.maxDelayMs);
+  }
+  const base = RETRY_CONFIG.initialDelayMs * Math.pow(RETRY_CONFIG.backoffFactor, attempt - 1);
+  const jitter = base * RETRY_CONFIG.jitterFactor * Math.random();
+  return Math.min(Math.ceil(base + jitter), RETRY_CONFIG.maxDelayMs);
+}
+
 // 3. Official Fingerprint Tools Schema (Extracted from OpenCode CLI v2)
 const officialFingerprintTools = [
   {
@@ -428,41 +465,75 @@ const server = http.createServer(async (req, res) => {
       const upstreamModel = resolveUpstreamModel(requestedModel);
       const cloakedBody = cloakOpencodePayload(body);
       const targetUrl = OPENCODE_CHAT_URL;
-      const sessionID = getOrCreateSession('opencode_global');
       const payloadBuffer = Buffer.from(JSON.stringify(cloakedBody), 'utf8');
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer public',
-        'User-Agent': OPENCODE_CLIENT_UA,
-        'x-opencode-client': 'cli',
-        'x-opencode-project': 'global',
-        'x-opencode-session-id': sessionID,
-        'x-opencode-session': sessionID,
-        'x-session-affinity': sessionID,
-        'x-session-id': sessionID,
-        'Accept': 'text/event-stream',
-        'Content-Length': payloadBuffer.length
-      };
-
       try {
-        const upstreamRes = await makeUpstreamRequest(targetUrl, headers, payloadBuffer);
+        let upstreamRes = null;
+        let lastErrBody = '';
 
-        if (upstreamRes.statusCode >= 400) {
+        for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+        const sessionID = getOrCreateSession('opencode_global');
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer public',
+          'User-Agent': OPENCODE_CLIENT_UA,
+          'x-opencode-client': 'cli',
+          'x-opencode-project': 'global',
+          'x-opencode-session-id': sessionID,
+          'x-opencode-session': sessionID,
+          'x-session-affinity': sessionID,
+          'x-session-id': sessionID,
+          'Accept': 'text/event-stream',
+          'Content-Length': payloadBuffer.length
+        };
+
+        try {
+          upstreamRes = await makeUpstreamRequest(targetUrl, headers, payloadBuffer);
+
+          if (upstreamRes.statusCode === 200) {
+            break;
+          }
+
           const errChunks = [];
           upstreamRes.on('data', c => errChunks.push(c));
-          upstreamRes.on('end', () => {
-            const errMsg = Buffer.concat(errChunks).toString('utf8');
-            res.writeHead(upstreamRes.statusCode, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              error: {
-                message: `OpenCode Upstream Error (${upstreamRes.statusCode}): ${errMsg}`,
-                type: 'upstream_error'
-              }
-            }));
-          });
+          await new Promise(resolve => upstreamRes.on('end', resolve));
+          lastErrBody = Buffer.concat(errChunks).toString('utf8');
+
+          const isRetryable = RETRY_CONFIG.retryableStatuses.includes(upstreamRes.statusCode) ||
+            RETRY_CONFIG.retryablePatterns.some(p => p.test(lastErrBody));
+
+          if (isRetryable && attempt < RETRY_CONFIG.maxRetries) {
+            const delay = calculateRetryDelay(attempt, upstreamRes.headers);
+            console.warn(`[${new Date().toLocaleTimeString()}] [Upstream Retry ${attempt}/${RETRY_CONFIG.maxRetries}] HTTP ${upstreamRes.statusCode}. Waiting ${delay}ms before next attempt... Error: ${lastErrBody.slice(0, 120)}`);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+
+          res.writeHead(upstreamRes.statusCode, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: {
+              message: `OpenCode Upstream Error (${upstreamRes.statusCode}): ${lastErrBody}`,
+              type: 'upstream_error'
+            }
+          }));
+          return;
+        } catch (netErr) {
+          console.warn(`[${new Date().toLocaleTimeString()}] [Connection Error attempt ${attempt}/${RETRY_CONFIG.maxRetries}]: ${netErr.message}`);
+          if (attempt < RETRY_CONFIG.maxRetries) {
+            const delay = calculateRetryDelay(attempt);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: {
+              message: `Bridge connection error: ${netErr.message}`,
+              type: 'gateway_error'
+            }
+          }));
           return;
         }
+      }
 
         if (clientRequestedStream) {
           res.writeHead(200, {

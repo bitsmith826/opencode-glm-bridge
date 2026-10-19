@@ -13,7 +13,7 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
-config.local.json
+config.local.json*
 *.local
 
 # OS Generated

@@ -8,36 +8,29 @@ const { startServer } = require('./server.js');
 const TEST_PORT = 8399;
 const TEST_HOST = '127.0.0.1';
 
-function request(path, options = {}, body = null, retries = 2) {
+function request(path, options = {}, body = null) {
   return new Promise((resolve, reject) => {
-    const doReq = (attempt) => {
-      const req = http.request({
-        host: TEST_HOST,
-        port: TEST_PORT,
-        path: path,
-        method: options.method || 'GET',
-        headers: options.headers || {}
-      }, (res) => {
-        const chunks = [];
-        res.on('data', c => chunks.push(c));
-        res.on('end', () => {
-          const raw = Buffer.concat(chunks).toString('utf8');
-          if (res.statusCode === 429 && attempt < retries) {
-            setTimeout(() => doReq(attempt + 1), 3500);
-            return;
-          }
-          resolve({
-            statusCode: res.statusCode,
-            headers: res.headers,
-            body: raw
-          });
+    const req = http.request({
+      host: TEST_HOST,
+      port: TEST_PORT,
+      path: path,
+      method: options.method || 'GET',
+      headers: options.headers || {}
+    }, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        resolve({
+          statusCode: res.statusCode,
+          headers: res.headers,
+          body: raw
         });
       });
-      req.on('error', reject);
-      if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body));
-      req.end();
-    };
-    doReq(0);
+    });
+    req.on('error', reject);
+    if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body));
+    req.end();
   });
 }
 
