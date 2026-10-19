@@ -550,9 +550,20 @@ function startServer(port = PORT, host = HOST) {
     server.once('error', onError);
     server.listen(port, host, () => {
       server.removeListener('error', onError);
-      console.log(`[OpenCode Dual Frontier Bridge] Listening on http://${host}:${port}`);
-      console.log(`[OpenCode Dual Frontier Bridge] Models endpoint: http://${host}:${port}/v1/models`);
-      console.log(`[OpenCode Dual Frontier Bridge] Chat endpoint: http://${host}:${port}/v1/chat/completions`);
+      console.log('===========================================================');
+      console.log('   🚀 OpenCode Dual Frontier Bridge (OpenAI-Compatible)');
+      console.log('===========================================================');
+      console.log(`   Status   : Online & Listening on http://${host}:${port}`);
+      console.log(`   Upstream : ${UPSTREAM_BASE}`);
+      console.log('   Models   :');
+      (config.supportedModels || []).forEach((m, i) => {
+        console.log(`     [${i + 1}] ${m.id.padEnd(14)} (${m.name} - ${(m.contextWindow / 1000).toLocaleString()}k context)`);
+      });
+      console.log('-----------------------------------------------------------');
+      console.log(`   Discovery: http://${host}:${port}/v1/models`);
+      console.log(`   Chat API : http://${host}:${port}/v1/chat/completions`);
+      console.log('===========================================================');
+      console.log('   Waiting for incoming requests from 9Router / Cursor...\n');
       resolve(server);
     });
   });
