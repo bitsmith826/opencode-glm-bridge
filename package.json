@@ -5,10 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test-bridge.js",
-    "setup-9router": "node integrate-9router.js",
-    "check-9router": "node integrate-9router.js status",
-    "uninstall-9router": "node integrate-9router.js uninstall"
+    "test": "node test-bridge.js"
   },
   "keywords": [
     "opencode",

@@ -49,7 +49,6 @@ const PROXY_URL = process.env.OPENCODE_PROXY || config.proxy || '';
 
 const UPSTREAM_BASE = process.env.OPENCODE_UPSTREAM_URL || config.upstreamUrl || 'https://opencode.ai';
 const OPENCODE_CHAT_URL = `${UPSTREAM_BASE.replace(/\/$/, '')}/inference/v1/chat/completions`;
-const OPENCODE_RESPONSES_URL = `${UPSTREAM_BASE.replace(/\/$/, '')}/inference/v1/responses`;
 const OPENCODE_CLIENT_UA = 'opencode/latest/2.0.26/cli';
 
 const sessionPrefixMask = (1n << 48n) - 1n;
@@ -137,7 +136,7 @@ function resolveUpstreamModel(clientModel) {
 }
 
 // 4. Request Cloaker & Normalizer
-function cloakOpencodePayload(body, isResponses = false) {
+function cloakOpencodePayload(body) {
   const payload = JSON.parse(JSON.stringify(body));
 
   // Resolve upstream model name
@@ -172,19 +171,8 @@ function cloakOpencodePayload(body, isResponses = false) {
     finalTools.push(cloned);
   }
 
-  // Inject OpenCode's official tools
-  for (const ft of officialFingerprintTools) {
-    if (isResponses) {
-      finalTools.push({
-        type: 'function',
-        name: ft.function.name,
-        description: ft.function.description,
-        parameters: ft.function.parameters
-      });
-    } else {
-      finalTools.push(ft);
-    }
-  }
+  // Inject OpenCode's official fingerprint tools
+  finalTools.push(...officialFingerprintTools);
 
   payload.tools = finalTools;
   payload.tool_choice = 'auto';
@@ -433,10 +421,8 @@ const server = http.createServer(async (req, res) => {
       const timeStr = new Date().toLocaleTimeString();
       console.log(`[${timeStr}] >> [Incoming Request] Model: ${requestedModel} | Stream: ${clientRequestedStream}`);
       const upstreamModel = resolveUpstreamModel(requestedModel);
-      const isResponsesUrl = upstreamModel.includes('muse-spark');
-      const targetUrl = isResponsesUrl ? OPENCODE_RESPONSES_URL : OPENCODE_CHAT_URL;
-
-      const cloakedBody = cloakOpencodePayload(body, isResponsesUrl);
+      const cloakedBody = cloakOpencodePayload(body);
+      const targetUrl = OPENCODE_CHAT_URL;
       const sessionID = getOrCreateSession('opencode_global');
       const payloadBuffer = Buffer.from(JSON.stringify(cloakedBody), 'utf8');
 
