@@ -1,0 +1,40 @@
+services:
+  9router:
+    image: decolua/9router:latest
+    container_name: 9router
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:20128:20128"
+    environment:
+      - DATA_DIR=/app/data
+      - PORT=20128
+      - INITIAL_PASSWORD=pQwYHNBtLgTJ3y7
+    volumes:
+      - ./data:/app/data
+    networks:
+      - gateway-net
+    depends_on:
+      - opencode-bridge
+
+  opencode-bridge:
+    image: node:22-alpine
+    container_name: opencode-bridge
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      - OPENCODE_BRIDGE_PORT=8318
+      - OPENCODE_BRIDGE_HOST=0.0.0.0
+    command: >
+      sh -c "if [ ! -f server.js ]; then
+               apk add --no-cache git &&
+               git clone https://github.com/bitsmith826/opencode-glm-bridge.git .
+             fi &&
+             node server.js"
+    volumes:
+      - ./opencode-bridge:/app
+    networks:
+      - gateway-net
+
+networks:
+  gateway-net:
+    external: true
