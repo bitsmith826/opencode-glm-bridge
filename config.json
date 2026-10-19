@@ -15,8 +15,8 @@
       "id": "deepseek-v4.1",
       "upstreamId": "deepseek-v4.1-flash-free",
       "name": "DeepSeek V4.1 Flash",
-      "contextWindow": 200000,
-      "maxOutput": 32000
+      "contextWindow": 1048000,
+      "maxOutput": 128000
     }
   ]
 }

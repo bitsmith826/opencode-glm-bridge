@@ -1,8 +1,8 @@
 # OpenCode Dual Frontier Bridge (OpenAI-Compatible)
 
-Jembatan API mandiri (Zero-Dependency) untuk menghubungkan berbagai editor AI (**Cursor**, **Cline**, **Roo Code**, **Continue**, **Aider**, atau **9Router**) ke dua model frontier gratis terbaik:
-1. **`glm-5.3-flash-free`** (Zhipu AI / Z.ai Multimodal Reasoning - Konteks 1 Juta Token, 128K Output)
-2. **`deepseek-v4.1-flash-free`** (DeepSeek AI Coding Specialist - Konteks 200 Ribu Token, 32K Output)
+Jembatan API mandiri (Zero-Dependency) untuk menghubungkan berbagai editor AI (**Cursor**, **Cline**, **Roo Code**, **Continue**, **Aider**, atau **9Router**) ke dua model frontier terbaik:
+1. **`glm-5.3`** (Zhipu AI / Z.ai Multimodal Reasoning - Konteks 1 Juta Token, 128K Output)
+2. **`deepseek-v4.1`** (DeepSeek AI Coding Specialist - Konteks 1 Juta Token, 128K Output)
 
 **100% Mandiri:** Tanpa perlu install software OpenCode, tanpa perlu akun berbayar!
 
@@ -64,8 +64,8 @@ docker compose up -d
    * **Base URL:** `http://opencode-bridge:8318/v1`
    * **API Key:** `free` *(bebas isi sembarang teks)*
    * **Enabled Models:** Centang/tambahkan:
-     * `glm-5.3-flash-free`
-     * `deepseek-v4.1-flash-free`
+     * `glm-5.3`
+     * `deepseek-v4.1`
 3. Klik **Save**. Kedua model siap dipakai di semua client AI Anda via endpoint 9Router!
 
 ---
