@@ -130,8 +130,8 @@ function resolveUpstreamModel(clientModel) {
   const clean = clientModel.replace(/^(opencode|opencode-free)\//, '').trim();
   const found = (config.supportedModels || []).find(m => m.id === clean);
   if (found && found.upstreamId) return found.upstreamId;
-  if (clean === 'glm-5.3' || clean === 'glm-5.3-flash' || clean === 'glm') return 'glm-5.3-flash-free';
-  if (clean === 'deepseek' || clean === 'deepseek-v4.1' || clean === 'deepseek-v4') return 'deepseek-v4.1-flash-free';
+  if (clean === 'glm-5.3' || clean === 'glm-5.3-flash' || clean === 'glm' || clean === 'glm-5.3-flash-free') return 'glm-5.3-flash-free';
+  if (clean === 'deepseek' || clean === 'deepseek-v4.1' || clean === 'deepseek-v4' || clean === 'deepseek-v4.1-flash' || clean === 'deepseek-v4.1-flash-free') return 'deepseek-v4.1-flash-free';
   return clean;
 }
 
@@ -193,12 +193,15 @@ function cloakOpencodePayload(body) {
   return payload;
 }
 
-function restoreToolNamesInLine(line) {
+function restoreToolNamesInLine(line, requestedModel = '') {
   if (line.includes('read_client')) {
     line = line.replaceAll('read_client', 'read');
   }
   if (line.includes('shell_client')) {
     line = line.replaceAll('shell_client', 'shell');
+  }
+  if (requestedModel && !requestedModel.includes('-free') && line.includes('-free')) {
+    line = line.replace(/"model"\s*:\s*"[^"]+-free"/g, `"model":"${requestedModel}"`);
   }
   return line;
 }
@@ -287,7 +290,9 @@ function assembleSSE(rawLines, fallbackModel) {
       const parsed = JSON.parse(dataStr);
       if (parsed.id) resID = parsed.id;
       if (parsed.created) created = parsed.created;
-      if (parsed.model) model = parsed.model;
+      if (parsed.model) {
+        model = (fallbackModel && !fallbackModel.includes('-free')) ? fallbackModel : parsed.model;
+      }
       if (parsed.usage) usage = parsed.usage;
 
       if (Array.isArray(parsed.choices) && parsed.choices[0]) {
@@ -391,7 +396,7 @@ const server = http.createServer(async (req, res) => {
       id: m.id,
       object: 'model',
       created: 1710000000,
-      owned_by: 'opencode-free',
+      owned_by: 'opencode',
       permission: [],
       root: m.id,
       parent: null
@@ -474,14 +479,14 @@ const server = http.createServer(async (req, res) => {
             buffer = lines.pop();
 
             for (let line of lines) {
-              const restored = restoreToolNamesInLine(line);
+              const restored = restoreToolNamesInLine(line, requestedModel);
               res.write(restored + '\n');
             }
           });
 
           upstreamRes.on('end', () => {
             if (buffer.trim()) {
-              res.write(restoreToolNamesInLine(buffer) + '\n');
+              res.write(restoreToolNamesInLine(buffer, requestedModel) + '\n');
             }
             res.end();
             console.log(`[${new Date().toLocaleTimeString()}] << [Completed] Stream selesai dikirim ke client (${requestedModel})`);
@@ -499,13 +504,13 @@ const server = http.createServer(async (req, res) => {
             const lines = buffer.split('\n');
             buffer = lines.pop();
             for (const line of lines) {
-              allLines.push(restoreToolNamesInLine(line));
+              allLines.push(restoreToolNamesInLine(line, requestedModel));
             }
           });
 
           upstreamRes.on('end', () => {
             if (buffer.trim()) {
-              allLines.push(restoreToolNamesInLine(buffer));
+              allLines.push(restoreToolNamesInLine(buffer, requestedModel));
             }
             const assembled = assembleSSE(allLines, requestedModel);
             res.writeHead(200, { 'Content-Type': 'application/json' });

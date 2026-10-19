@@ -5,16 +5,16 @@
   "proxy": "",
   "supportedModels": [
     {
-      "id": "glm-5.3-flash-free",
+      "id": "glm-5.3",
       "upstreamId": "glm-5.3-flash-free",
-      "name": "GLM 5.3 Flash (Free Frontier)",
+      "name": "GLM 5.3 Flash",
       "contextWindow": 1000000,
       "maxOutput": 128000
     },
     {
-      "id": "deepseek-v4.1-flash-free",
+      "id": "deepseek-v4.1",
       "upstreamId": "deepseek-v4.1-flash-free",
-      "name": "DeepSeek V4.1 Flash (Free)",
+      "name": "DeepSeek V4.1 Flash",
       "contextWindow": 200000,
       "maxOutput": 32000
     }

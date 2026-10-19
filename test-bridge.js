@@ -51,6 +51,7 @@ async function runTests() {
       console.log('FAILED');
       console.error(`   Error: ${err.message}`);
     }
+    await new Promise(r => setTimeout(r, 2000));
   }
 
   try {
@@ -69,14 +70,14 @@ async function runTests() {
       const data = JSON.parse(res.body);
       if (!Array.isArray(data.data) || data.data.length === 0) throw new Error('Models array is empty');
       const ids = data.data.map(m => m.id);
-      if (!ids.includes('glm-5.3-flash-free')) throw new Error('Missing glm-5.3-flash-free');
-      if (!ids.includes('deepseek-v4.1-flash-free')) throw new Error('Missing deepseek-v4.1-flash-free');
+      if (!ids.includes('glm-5.3')) throw new Error('Missing glm-5.3');
+      if (!ids.includes('deepseek-v4.1')) throw new Error('Missing deepseek-v4.1');
     });
 
     // 3. GLM-5.3 Streaming Chat Completion
-    await assertTest('Streaming Chat: glm-5.3-flash-free', async () => {
+    await assertTest('Streaming Chat: glm-5.3', async () => {
       const payload = {
-        model: 'glm-5.3-flash-free',
+        model: 'glm-5.3',
         messages: [{ role: 'user', content: 'Say "GLM OK" in 2 words.' }],
         stream: true
       };
@@ -90,9 +91,9 @@ async function runTests() {
     });
 
     // 4. GLM-5.3 Non-Streaming Chat Completion
-    await assertTest('Non-Streaming Chat: glm-5.3-flash-free', async () => {
+    await assertTest('Non-Streaming Chat: glm-5.3', async () => {
       const payload = {
-        model: 'glm-5.3-flash-free',
+        model: 'glm-5.3',
         messages: [{ role: 'user', content: 'Say "GLM JSON" in 2 words.' }],
         stream: false
       };
@@ -111,9 +112,9 @@ async function runTests() {
     });
 
     // 5. DeepSeek V4.1 Streaming Chat Completion
-    await assertTest('Streaming Chat: deepseek-v4.1-flash-free', async () => {
+    await assertTest('Streaming Chat: deepseek-v4.1', async () => {
       const payload = {
-        model: 'deepseek-v4.1-flash-free',
+        model: 'deepseek-v4.1',
         messages: [{ role: 'user', content: 'Say "DeepSeek OK" in 2 words.' }],
         stream: true
       };
@@ -127,9 +128,9 @@ async function runTests() {
     });
 
     // 6. DeepSeek V4.1 Non-Streaming Chat Completion
-    await assertTest('Non-Streaming Chat: deepseek-v4.1-flash-free', async () => {
+    await assertTest('Non-Streaming Chat: deepseek-v4.1', async () => {
       const payload = {
-        model: 'deepseek-v4.1-flash-free',
+        model: 'deepseek-v4.1',
         messages: [{ role: 'user', content: 'Say "DeepSeek JSON" in 2 words.' }],
         stream: false
       };
