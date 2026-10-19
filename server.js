@@ -499,8 +499,9 @@ const server = http.createServer(async (req, res) => {
           await new Promise(resolve => upstreamRes.on('end', resolve));
           lastErrBody = Buffer.concat(errChunks).toString('utf8');
 
-          const isRetryable = RETRY_CONFIG.retryableStatuses.includes(upstreamRes.statusCode) ||
-            RETRY_CONFIG.retryablePatterns.some(p => p.test(lastErrBody));
+          const isModelUnavailable = upstreamRes.statusCode === 400 || lastErrBody.includes('Model is unavailable');
+          const isRetryable = !isModelUnavailable && (RETRY_CONFIG.retryableStatuses.includes(upstreamRes.statusCode) ||
+            RETRY_CONFIG.retryablePatterns.some(p => p.test(lastErrBody)));
 
           if (isRetryable && attempt < RETRY_CONFIG.maxRetries) {
             const delay = calculateRetryDelay(attempt, upstreamRes.headers);
