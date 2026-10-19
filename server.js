@@ -560,6 +560,10 @@ function startServer(port = PORT, host = HOST) {
         console.log(`     [${i + 1}] ${m.id.padEnd(14)} (${m.name} - ${(m.contextWindow / 1000).toLocaleString()}k context)`);
       });
       console.log('-----------------------------------------------------------');
+      console.log('   Client Settings (Cursor / Cline / 9Router):');
+      console.log(`     Base URL : http://${host}:${port}/v1`);
+      console.log('     API Key  : free (bebas / sembarang teks)');
+      console.log('-----------------------------------------------------------');
       console.log(`   Discovery: http://${host}:${port}/v1/models`);
       console.log(`   Chat API : http://${host}:${port}/v1/chat/completions`);
       console.log('===========================================================');
