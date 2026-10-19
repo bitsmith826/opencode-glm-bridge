@@ -7,7 +7,7 @@
     {
       "id": "glm-5.3-flash-free",
       "upstreamId": "glm-5.3-flash-free",
-      "name": "GLM 5.3 Flash (Free Frontier)",
+      "name": "GLM 5.3 Flash (Z.ai Frontier)",
       "contextWindow": 1000000,
       "maxOutput": 128000
     },
@@ -21,7 +21,7 @@
     {
       "id": "deepseek-v4.1-flash-free",
       "upstreamId": "deepseek-v4.1-flash-free",
-      "name": "DeepSeek V4.1 Flash (Free)",
+      "name": "DeepSeek V4.1 Flash (Coding Specialist)",
       "contextWindow": 200000,
       "maxOutput": 32000
     },
@@ -31,6 +31,34 @@
       "name": "DeepSeek V4.1 Flash (Alias)",
       "contextWindow": 200000,
       "maxOutput": 32000
+    },
+    {
+      "id": "big-pickle",
+      "upstreamId": "big-pickle",
+      "name": "Big Pickle (Xiaomi MiMo Core)",
+      "contextWindow": 200000,
+      "maxOutput": 64000
+    },
+    {
+      "id": "nemotron-3.5-lightning-free",
+      "upstreamId": "nemotron-3.5-lightning-free",
+      "name": "Nemotron 3.5 Lightning (NVIDIA)",
+      "contextWindow": 128000,
+      "maxOutput": 64000
+    },
+    {
+      "id": "space-bunny-free",
+      "upstreamId": "space-bunny-free",
+      "name": "Space Bunny (Anthropic Claude Core)",
+      "contextWindow": 200000,
+      "maxOutput": 64000
+    },
+    {
+      "id": "cat-jam-free",
+      "upstreamId": "cat-jam-free",
+      "name": "Cat Jam (Reflection Beam Core)",
+      "contextWindow": 200000,
+      "maxOutput": 64000
     }
   ]
 }
