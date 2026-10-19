@@ -43,7 +43,41 @@ Setelah itu, setiap kali Anda menjalankan `9router` di terminal:
 * Ketika 9Router dimatikan (Ctrl+C atau quit tray), bridge juga otomatis berhenti dengan bersih tanpa meninggalkan proses zombie.
 * Model langsung dapat diakses lewat port 9Router (`http://localhost:20128/v1/chat/completions`) dengan API key 9Router Anda!
 
-## 🛠️ Solusi Anti-Limit: Cloudflare Worker Relay (Teruji 100%)
+---
+
+## 🐳 Panduan Deployment di Docker VPS (Jika 9Router di VPS)
+
+Jika 9Router Anda sudah berjalan di Docker VPS (`ghcr.io/decolua/9router`), Anda bisa menghubungkannya dengan 2 cara mudah:
+
+### Opsi A (Paling Simpel - Container Sidecar):
+1. Di VPS Anda, clone repositori ini dan jalankan:
+   ```bash
+   git clone https://github.com/bitsmith826/opencode-glm-bridge.git
+   cd opencode-glm-bridge
+   docker compose up -d
+   ```
+   *(Bridge akan aktif di port `8318` di VPS)*.
+
+2. Buka Web Dashboard 9Router Anda (`http://<IP-VPS>:20128/dashboard`):
+   * Masuk ke menu **Provider Nodes** (atau **Custom Provider**) ➡️ Klik **Add Provider**.
+   * Pilih tipe: **`OpenAI Compatible`**
+   * **Node Name:** `OpenCode Free`
+   * **Prefix:** `opencode-free` *(Catatan: gunakan prefix `opencode-free` agar tidak bertabrakan dengan provider bawaan 9Router yang broken)*
+   * **Base URL:** `http://172.17.0.1:8318/v1` *(atau `http://opencode-bridge:8318/v1` jika 1 network docker)*
+   * **API Key:** `free`
+   * **Enabled Models:** Centang/tambahkan `glm-5.3-flash-free` dan `deepseek-v4.1-flash-free`.
+
+3. Di IDE / editor coding Anda:
+   * **Base URL:** `http://<IP-VPS>:20128/v1`
+   * **Model:** `opencode-free/glm-5.3-flash-free` atau `opencode-free/deepseek-v4.1-flash-free`
+
+### Opsi B (All-in-One Stack di VPS):
+Jalankan stack lengkap 9Router + Bridge dalam satu compose:
+```bash
+docker compose -f docker-compose.9router-stack.yml up -d
+```
+
+---
 
 Jika Anda ingin koneksi yang 100% stabil, bebas error 403, dan bebas rate limit 429, gunakan metode **Cloudflare Worker Relay** (100.000 Request GRATIS per hari):
 

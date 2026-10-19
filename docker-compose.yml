@@ -1,0 +1,15 @@
+services:
+  opencode-bridge:
+    build: .
+    image: opencode-glm-bridge:latest
+    container_name: opencode-bridge
+    restart: unless-stopped
+    ports:
+      - "8318:8318"
+    environment:
+      - OPENCODE_BRIDGE_PORT=8318
+      - OPENCODE_BRIDGE_HOST=0.0.0.0
+      # Opsional: Jika menggunakan proxy atau Cloudflare Worker relay
+      # - OPENCODE_PROXY=http://proxy-host:8080
+    # volumes:
+    #   - ./config.local.json:/app/config.local.json:ro
