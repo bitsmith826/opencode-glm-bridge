@@ -1,8 +1,8 @@
 # OpenCode Dual Frontier Bridge (OpenAI-Compatible)
 
 Jembatan API lokal mandiri untuk menghubungkan berbagai editor AI (**Cursor**, **Cline**, **Roo Code**, **Continue**, **Aider**, atau skrip **Python**) ke dua model frontier gratis terbaik:
-1. **`deepseek-v4.1-flash-free`** (DeepSeek AI Coding Specialist - Konteks 1 Juta Token)
-2. **`glm-5.3-flash-free`** (Zhipu AI / Z.ai Multimodal Reasoning - Konteks 200 Ribu Token)
+1. **`glm-5.3-flash-free`** (Zhipu AI / Z.ai Multimodal Reasoning - Konteks 1 Juta Token, 128K Output)
+2. **`deepseek-v4.1-flash-free`** (DeepSeek AI Coding Specialist - Konteks 200 Ribu Token, 32K Output)
 
 **100% Mandiri:** Tanpa perlu instal software OpenCode, tanpa perlu akun berbayar!
 

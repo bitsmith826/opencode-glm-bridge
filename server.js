@@ -1,9 +1,9 @@
 /**
- * OpenCode GLM-5.3 Standalone Bridge (OpenAI Compatible)
+ * OpenCode Dual Frontier Bridge (OpenAI Compatible)
  * 
  * Reverse-engineered using REA (morluto/rea) on OpenCode v2.
  * Connects external clients (Cursor, Claude Code, Cline, Python, cURL)
- * to OpenCode's free GLM-5.3 frontier model without running the OpenCode UI.
+ * to OpenCode's free GLM-5.3 and DeepSeek V4.1 frontier models without running the OpenCode UI.
  */
 
 const http = require('node:http');
@@ -544,8 +544,36 @@ const server = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: { message: `Route ${req.method} ${pathname} not found`, type: 'invalid_request_error' } }));
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`[OpenCode GLM-5.3 Bridge] Listening on http://${HOST}:${PORT}`);
-  console.log(`[OpenCode GLM-5.3 Bridge] Models endpoint: http://${HOST}:${PORT}/v1/models`);
-  console.log(`[OpenCode GLM-5.3 Bridge] Chat endpoint: http://${HOST}:${PORT}/v1/chat/completions`);
-});
+function startServer(port = PORT, host = HOST) {
+  return new Promise((resolve) => {
+    server.listen(port, host, () => {
+      console.log(`[OpenCode Dual Frontier Bridge] Listening on http://${host}:${port}`);
+      console.log(`[OpenCode Dual Frontier Bridge] Models endpoint: http://${host}:${port}/v1/models`);
+      console.log(`[OpenCode Dual Frontier Bridge] Chat endpoint: http://${host}:${port}/v1/chat/completions`);
+      resolve(server);
+    });
+  });
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = {
+  server,
+  startServer,
+  config,
+  PORT,
+  HOST,
+  PROXY_URL,
+  UPSTREAM_BASE,
+  OPENCODE_CHAT_URL,
+  OPENCODE_CLIENT_UA,
+  genSessionID,
+  getOrCreateSession,
+  resolveUpstreamModel,
+  cloakOpencodePayload,
+  restoreToolNamesInLine,
+  makeUpstreamRequest,
+  assembleSSE
+};
