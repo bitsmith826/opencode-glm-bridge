@@ -47,7 +47,7 @@ const PORT = parseInt(process.env.OPENCODE_BRIDGE_PORT || config.port || 8318, 1
 const HOST = process.env.OPENCODE_BRIDGE_HOST || config.host || '127.0.0.1';
 const PROXY_URL = process.env.OPENCODE_PROXY || config.proxy || '';
 
-const UPSTREAM_BASE = config.upstreamUrl || 'https://opencode.ai';
+const UPSTREAM_BASE = process.env.OPENCODE_UPSTREAM_URL || config.upstreamUrl || 'https://opencode.ai';
 const OPENCODE_CHAT_URL = `${UPSTREAM_BASE.replace(/\/$/, '')}/inference/v1/chat/completions`;
 const OPENCODE_RESPONSES_URL = `${UPSTREAM_BASE.replace(/\/$/, '')}/inference/v1/responses`;
 const OPENCODE_CLIENT_UA = 'opencode/latest/2.0.26/cli';
