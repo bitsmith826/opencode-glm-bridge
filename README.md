@@ -87,7 +87,7 @@ Arahkan editor AI Anda (Cursor / Cline / Roo Code):
 * **API Provider:** `OpenAI Compatible`
 * **Base URL:** `http://127.0.0.1:8318/v1`
 * **API Key:** `dummy` *(bebas)*
-* **Model:** `glm-5.3-flash-free` atau `deepseek-v4.1-flash-free`
+* **Model:** `glm-5.3` atau `deepseek-v4.1`
 
 ---
 
