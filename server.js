@@ -43,8 +43,8 @@ if (fs.existsSync(localConfigPath)) {
   }
 }
 
-const PORT = parseInt(process.env.PORT || config.port || 8318, 10);
-const HOST = process.env.HOST || config.host || '127.0.0.1';
+const PORT = parseInt(process.env.OPENCODE_BRIDGE_PORT || config.port || 8318, 10);
+const HOST = process.env.OPENCODE_BRIDGE_HOST || config.host || '127.0.0.1';
 const PROXY_URL = process.env.OPENCODE_PROXY || config.proxy || '';
 
 const UPSTREAM_BASE = config.upstreamUrl || 'https://opencode.ai';
@@ -545,8 +545,19 @@ const server = http.createServer(async (req, res) => {
 });
 
 function startServer(port = PORT, host = HOST) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const onError = (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`[OpenCode Dual Frontier Bridge] Port ${port} is already active.`);
+        resolve(server);
+      } else {
+        console.error(`[OpenCode Dual Frontier Bridge] Server error:`, err);
+        reject(err);
+      }
+    };
+    server.once('error', onError);
     server.listen(port, host, () => {
+      server.removeListener('error', onError);
       console.log(`[OpenCode Dual Frontier Bridge] Listening on http://${host}:${port}`);
       console.log(`[OpenCode Dual Frontier Bridge] Models endpoint: http://${host}:${port}/v1/models`);
       console.log(`[OpenCode Dual Frontier Bridge] Chat endpoint: http://${host}:${port}/v1/chat/completions`);

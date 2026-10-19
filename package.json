@@ -1,0 +1,22 @@
+{
+  "name": "opencode-glm-bridge",
+  "version": "1.0.0",
+  "description": "OpenCode AI Reverse-Engineered Dual Frontier Bridge (GLM-5.3 & DeepSeek V4.1) for 9Router",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-bridge.js",
+    "setup-9router": "node integrate-9router.js",
+    "check-9router": "node integrate-9router.js status",
+    "uninstall-9router": "node integrate-9router.js uninstall"
+  },
+  "keywords": [
+    "opencode",
+    "glm-5.3",
+    "deepseek-v4.1",
+    "9router",
+    "llm-bridge"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -27,6 +27,22 @@ Jembatan API lokal mandiri untuk menghubungkan berbagai editor AI (**Cursor**, *
 
 ---
 
+## ⚡ Integrasi Otomatis dengan 9Router (Cukup Jalankan `9router` Saja!)
+
+Bagi pengguna [9Router](https://9router.com), Anda **TIDAK PERLU** lagi membuka dua terminal atau menjalankan `start-windows.bat` secara terpisah!
+
+Cukup pasang integrasi sidecar sekali saja:
+```bash
+npm run setup-9router
+# atau: node integrate-9router.js
+```
+
+Setelah itu, setiap kali Anda menjalankan `9router` di terminal:
+* 9Router akan **otomatis meluncurkan OpenCode Bridge** di background.
+* 9Router secara transparan merutekan model `opencode/glm-5.3-flash-free` dan `opencode/deepseek-v4.1-flash-free` langsung lewat bridge anti-abuse.
+* Ketika 9Router dimatikan (Ctrl+C atau quit tray), bridge juga otomatis berhenti dengan bersih tanpa meninggalkan proses zombie.
+* Model langsung dapat diakses lewat port 9Router (`http://localhost:20128/v1/chat/completions`) dengan API key 9Router Anda!
+
 ## 🛠️ Solusi Anti-Limit: Cloudflare Worker Relay (Teruji 100%)
 
 Jika Anda ingin koneksi yang 100% stabil, bebas error 403, dan bebas rate limit 429, gunakan metode **Cloudflare Worker Relay** (100.000 Request GRATIS per hari):
