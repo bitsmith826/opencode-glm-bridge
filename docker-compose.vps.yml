@@ -17,21 +17,11 @@ services:
       - opencode-bridge
 
   opencode-bridge:
-    image: node:22-alpine
+    build: https://github.com/bitsmith826/opencode-glm-bridge.git#main
     container_name: opencode-bridge
     restart: unless-stopped
-    working_dir: /app
     environment:
-      - OPENCODE_BRIDGE_PORT=8318
-      - OPENCODE_BRIDGE_HOST=0.0.0.0
-    command: >
-      sh -c "if [ ! -f server.js ]; then
-               apk add --no-cache git &&
-               git clone https://github.com/bitsmith826/opencode-glm-bridge.git .
-             fi &&
-             node server.js"
-    volumes:
-      - ./opencode-bridge:/app
+      - OPENCODE_UPSTREAM_URL=${OPENCODE_UPSTREAM_URL:-https://opencode.ai}
     networks:
       - gateway-net
 
