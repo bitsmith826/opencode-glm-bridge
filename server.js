@@ -128,10 +128,11 @@ const officialFingerprintTools = [
 // Model mapping resolver
 function resolveUpstreamModel(clientModel) {
   if (!clientModel) return 'glm-5.3-flash-free';
-  const clean = clientModel.replace(/^opencode\//, '').trim();
+  const clean = clientModel.replace(/^(opencode|opencode-free)\//, '').trim();
   const found = (config.supportedModels || []).find(m => m.id === clean);
   if (found && found.upstreamId) return found.upstreamId;
-  if (clean === 'glm-5.3' || clean === 'glm-5.3-flash') return 'glm-5.3-flash-free';
+  if (clean === 'glm-5.3' || clean === 'glm-5.3-flash' || clean === 'glm') return 'glm-5.3-flash-free';
+  if (clean === 'deepseek' || clean === 'deepseek-v4.1' || clean === 'deepseek-v4') return 'deepseek-v4.1-flash-free';
   return clean;
 }
 
