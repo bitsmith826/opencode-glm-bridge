@@ -204,6 +204,8 @@ function resolveUpstreamModel(clientModel) {
   if (clean === 'minimax' || clean === 'minimax-m3.1' || clean === 'minimax-m3.1-flash' || clean === 'minimax-m3.1-flash-free') return 'minimax-m3.1-flash-free';
   if (clean === 'mimo' || clean === 'mimo-v2.6' || clean === 'mimo-v2.6-flash' || clean === 'mimo-v2.6-flash-free') return 'mimo-v2.6-flash-free';
   if (clean === 'beam' || clean === 'beam-free') return 'beam-free';
+  if (clean === 'cat-jam' || clean === 'cat-jam-free') return 'cat-jam-free';
+  if (clean === 'big-pickle') return 'big-pickle';
   return clean;
 }
 

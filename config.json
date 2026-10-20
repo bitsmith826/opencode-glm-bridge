@@ -41,6 +41,20 @@
       "name": "Beam Free",
       "contextWindow": 1048576,
       "maxOutput": 131072
+    },
+    {
+      "id": "cat-jam",
+      "upstreamId": "cat-jam-free",
+      "name": "Cat Jam Free",
+      "contextWindow": 1048576,
+      "maxOutput": 131072
+    },
+    {
+      "id": "big-pickle",
+      "upstreamId": "big-pickle",
+      "name": "Big Pickle",
+      "contextWindow": 200000,
+      "maxOutput": 32000
     }
   ]
 }
