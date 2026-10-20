@@ -47,9 +47,43 @@ const PORT = parseInt(process.env.OPENCODE_BRIDGE_PORT || config.port || 8318, 1
 const HOST = process.env.OPENCODE_BRIDGE_HOST || config.host || '127.0.0.1';
 const PROXY_URL = process.env.OPENCODE_PROXY || config.proxy || '';
 
-const UPSTREAM_BASE = process.env.OPENCODE_UPSTREAM_URL || config.upstreamUrl || 'https://opencode.ai';
-const OPENCODE_CHAT_URL = `${UPSTREAM_BASE.replace(/\/$/, '')}/inference/v1/chat/completions`;
+function getUpstreamPool() {
+  const envUrls = process.env.OPENCODE_UPSTREAM_URLS ? process.env.OPENCODE_UPSTREAM_URLS.split(',').map(s => s.trim()).filter(Boolean) : null;
+  const cfgUrls = Array.isArray(config.upstreamUrls) ? config.upstreamUrls.map(s => s.trim()).filter(Boolean) : null;
+  const single = process.env.OPENCODE_UPSTREAM_URL || config.upstreamUrl;
+
+  const raw = envUrls || cfgUrls || (single ? [single] : ['https://opencode.ai']);
+  return raw.map(u => u.replace(/\/$/, ''));
+}
+
+const UPSTREAM_POOL = getUpstreamPool();
+const UPSTREAM_BASE = UPSTREAM_POOL[0] || 'https://opencode.ai';
+const OPENCODE_CHAT_URL = `${UPSTREAM_BASE}/inference/v1/chat/completions`;
 const OPENCODE_CLIENT_UA = 'opencode/latest/2.0.26/cli';
+
+// Cooldown tracker for multi-upstream failover: upstreamUrl -> cooldownUntilTimestamp
+const upstreamCooldowns = new Map();
+let currentRoundRobinIndex = 0;
+
+function getAvailableUpstreamIndex(pool, startIndex = 0) {
+  const now = Date.now();
+  for (let i = 0; i < pool.length; i++) {
+    const idx = (startIndex + i) % pool.length;
+    const cooldown = upstreamCooldowns.get(pool[idx]) || 0;
+    if (now >= cooldown) return idx;
+  }
+  let earliestIdx = startIndex % pool.length;
+  let minCooldown = Infinity;
+  for (let i = 0; i < pool.length; i++) {
+    const idx = (startIndex + i) % pool.length;
+    const cooldown = upstreamCooldowns.get(pool[idx]) || 0;
+    if (cooldown < minCooldown) {
+      minCooldown = cooldown;
+      earliestIdx = idx;
+    }
+  }
+  return earliestIdx;
+}
 
 const sessionPrefixMask = (1n << 48n) - 1n;
 const base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -85,13 +119,13 @@ function getOrCreateSession(key = 'opencode_global') {
   return genSessionID();
 }
 
-// 2. Upstream Resilience & Retry Policy (Decompiled from OpenCode v2 SessionRetry)
+// 2. Upstream Resilience & Retry Policy (Smart Anti-Freeze & Failover Engine)
 const RETRY_CONFIG = {
   maxRetries: 5,
-  initialDelayMs: 2000,
-  backoffFactor: 2,
+  initialDelayMs: 1000,
+  backoffFactor: 1.5,
   jitterFactor: 0.25,
-  maxDelayMs: 30000,
+  maxDelayMs: 4000,
   retryableStatuses: [408, 409, 429, 500, 502, 503, 504, 524],
   retryablePatterns: [
     /429|500|502|503|504|524/i,
@@ -108,14 +142,12 @@ function calculateRetryDelay(attempt, responseHeaders = {}) {
   const retryAfterMs = responseHeaders['retry-after-ms'];
   if (retryAfterMs) {
     const parsed = parseFloat(retryAfterMs);
-    if (!isNaN(parsed)) return Math.min(parsed, RETRY_CONFIG.maxDelayMs);
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 5000) return parsed;
   }
   const retryAfter = responseHeaders['retry-after'];
   if (retryAfter) {
     const parsedSec = parseFloat(retryAfter);
-    if (!isNaN(parsedSec)) return Math.min(Math.ceil(parsedSec * 1000), RETRY_CONFIG.maxDelayMs);
-    const parsedDate = Date.parse(retryAfter) - Date.now();
-    if (!isNaN(parsedDate) && parsedDate > 0) return Math.min(Math.ceil(parsedDate), RETRY_CONFIG.maxDelayMs);
+    if (!isNaN(parsedSec) && parsedSec > 0 && parsedSec <= 10) return Math.ceil(parsedSec * 1000);
   }
   const base = RETRY_CONFIG.initialDelayMs * Math.pow(RETRY_CONFIG.backoffFactor, attempt - 1);
   const jitter = base * RETRY_CONFIG.jitterFactor * Math.random();
@@ -416,13 +448,20 @@ const server = http.createServer(async (req, res) => {
 
   // Liveness / Health check
   if ((pathname === '/' || pathname === '/health') && req.method === 'GET') {
+    const pool = getUpstreamPool();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
       service: 'opencode-glm-bridge',
-      version: '1.0.0',
+      version: '1.2.0',
       activeSessions: cachedSessions.size,
-      proxyConfigured: Boolean(PROXY_URL)
+      proxyConfigured: Boolean(PROXY_URL),
+      upstreams: pool.map((u, i) => ({
+        index: i + 1,
+        url: u,
+        status: (Date.now() >= (upstreamCooldowns.get(u) || 0)) ? 'active' : 'cooldown',
+        cooldownRemainingSec: Math.max(0, Math.ceil(((upstreamCooldowns.get(u) || 0) - Date.now()) / 1000))
+      }))
     }, null, 2));
     return;
   }
@@ -464,77 +503,137 @@ const server = http.createServer(async (req, res) => {
       console.log(`[${timeStr}] >> [Incoming Request] Model: ${requestedModel} | Stream: ${clientRequestedStream}`);
       const upstreamModel = resolveUpstreamModel(requestedModel);
       const cloakedBody = cloakOpencodePayload(body);
-      const targetUrl = OPENCODE_CHAT_URL;
       const payloadBuffer = Buffer.from(JSON.stringify(cloakedBody), 'utf8');
+
+      const pool = getUpstreamPool();
+      let activeUpstreamIdx = getAvailableUpstreamIndex(pool, currentRoundRobinIndex);
+      currentRoundRobinIndex = (activeUpstreamIdx + 1) % pool.length;
 
       try {
         let upstreamRes = null;
         let lastErrBody = '';
 
         for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
-        const sessionID = getOrCreateSession('opencode_global');
-        const headers = {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer public',
-          'User-Agent': OPENCODE_CLIENT_UA,
-          'x-opencode-client': 'cli',
-          'x-opencode-project': 'global',
-          'x-opencode-session-id': sessionID,
-          'x-opencode-session': sessionID,
-          'x-session-affinity': sessionID,
-          'x-session-id': sessionID,
-          'Accept': 'text/event-stream',
-          'Content-Length': payloadBuffer.length
-        };
+          const currentUpstream = pool[activeUpstreamIdx];
+          const targetUrl = `${currentUpstream}/inference/v1/chat/completions`;
+          const sessionID = getOrCreateSession('opencode_global');
+          const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer public',
+            'User-Agent': OPENCODE_CLIENT_UA,
+            'x-opencode-client': 'cli',
+            'x-opencode-project': 'global',
+            'x-opencode-session-id': sessionID,
+            'x-opencode-session': sessionID,
+            'x-session-affinity': sessionID,
+            'x-session-id': sessionID,
+            'Accept': 'text/event-stream',
+            'Content-Length': payloadBuffer.length
+          };
 
-        try {
-          upstreamRes = await makeUpstreamRequest(targetUrl, headers, payloadBuffer);
+          try {
+            upstreamRes = await makeUpstreamRequest(targetUrl, headers, payloadBuffer);
 
-          if (upstreamRes.statusCode === 200) {
-            break;
-          }
-
-          const errChunks = [];
-          upstreamRes.on('data', c => errChunks.push(c));
-          await new Promise(resolve => upstreamRes.on('end', resolve));
-          lastErrBody = Buffer.concat(errChunks).toString('utf8');
-
-          const isModelUnavailable = upstreamRes.statusCode === 400 || lastErrBody.includes('Model is unavailable');
-          const isRetryable = !isModelUnavailable && (RETRY_CONFIG.retryableStatuses.includes(upstreamRes.statusCode) ||
-            RETRY_CONFIG.retryablePatterns.some(p => p.test(lastErrBody)));
-
-          if (isRetryable && attempt < RETRY_CONFIG.maxRetries) {
-            const delay = calculateRetryDelay(attempt, upstreamRes.headers);
-            console.warn(`[${new Date().toLocaleTimeString()}] [Upstream Retry ${attempt}/${RETRY_CONFIG.maxRetries}] HTTP ${upstreamRes.statusCode}. Waiting ${delay}ms before next attempt... Error: ${lastErrBody.slice(0, 120)}`);
-            await new Promise(r => setTimeout(r, delay));
-            continue;
-          }
-
-          res.writeHead(upstreamRes.statusCode, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            error: {
-              message: `OpenCode Upstream Error (${upstreamRes.statusCode}): ${lastErrBody}`,
-              type: 'upstream_error'
+            if (upstreamRes.statusCode === 200) {
+              break;
             }
-          }));
-          return;
-        } catch (netErr) {
-          console.warn(`[${new Date().toLocaleTimeString()}] [Connection Error attempt ${attempt}/${RETRY_CONFIG.maxRetries}]: ${netErr.message}`);
-          if (attempt < RETRY_CONFIG.maxRetries) {
-            const delay = calculateRetryDelay(attempt);
-            await new Promise(r => setTimeout(r, delay));
-            continue;
-          }
-          res.writeHead(502, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            error: {
-              message: `Bridge connection error: ${netErr.message}`,
-              type: 'gateway_error'
+
+            const errChunks = [];
+            upstreamRes.on('data', c => errChunks.push(c));
+            await new Promise(resolve => upstreamRes.on('end', resolve));
+            lastErrBody = Buffer.concat(errChunks).toString('utf8');
+
+            const isModelUnavailable = upstreamRes.statusCode === 400 || lastErrBody.includes('Model is unavailable');
+            if (isModelUnavailable) {
+              res.writeHead(upstreamRes.statusCode, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({
+                error: {
+                  message: `OpenCode Upstream Error (${upstreamRes.statusCode}): ${lastErrBody}`,
+                  type: 'upstream_error'
+                }
+              }));
+              return;
             }
-          }));
-          return;
+
+            // Detect Hard Daily Rate Limit (FreeUsageLimitError or long retry-after)
+            const isHardDailyLimit = upstreamRes.statusCode === 429 &&
+              (lastErrBody.includes('FreeUsageLimitError') ||
+               (upstreamRes.headers['retry-after'] && parseFloat(upstreamRes.headers['retry-after']) > 60));
+
+            if (isHardDailyLimit) {
+              const retryAfterSec = parseFloat(upstreamRes.headers['retry-after']) || 600;
+              const cooldownMs = Math.min(retryAfterSec * 1000, 24 * 3600 * 1000);
+              upstreamCooldowns.set(currentUpstream, Date.now() + cooldownMs);
+              console.warn(`[${new Date().toLocaleTimeString()}] [Rate Limit Alert] Upstream ${currentUpstream} reached daily limit (${lastErrBody.slice(0, 80)}). Cooldown for ${Math.ceil(cooldownMs / 1000)}s.`);
+
+              // Check if another relay is available in the pool
+              const nextIdx = getAvailableUpstreamIndex(pool, activeUpstreamIdx + 1);
+              const nextCooldown = upstreamCooldowns.get(pool[nextIdx]) || 0;
+              if (pool.length > 1 && nextIdx !== activeUpstreamIdx && Date.now() >= nextCooldown) {
+                console.log(`[${new Date().toLocaleTimeString()}] [Instant Failover] Switching immediately (0ms) to next relay [${nextIdx + 1}/${pool.length}]: ${pool[nextIdx]}`);
+                activeUpstreamIdx = nextIdx;
+                continue; // Instant retry with fresh relay without delay!
+              } else {
+                // All relays in pool exhausted or only 1 relay configured: FAIL FAST (0ms delay) to prevent editor freezing!
+                console.warn(`[${new Date().toLocaleTimeString()}] [Anti-Freeze Fail-Fast] All available relays are rate-limited. Returning instant error response.`);
+                res.writeHead(429, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                  error: {
+                    message: `OpenCode Free Tier daily rate limit reached on relay (${currentUpstream}). Upstream resets at 00:00 UTC. To continue, add more Cloudflare Worker relays in config.json or configure a proxy.`,
+                    type: 'rate_limit_error',
+                    code: 'free_usage_limit_exhausted',
+                    retry_after: retryAfterSec
+                  }
+                }));
+                return;
+              }
+            }
+
+            // Transient retryable error (500, 502, 503, 504, 524, or temporary 429 Endpoint unavailable)
+            const isRetryable = RETRY_CONFIG.retryableStatuses.includes(upstreamRes.statusCode) ||
+              RETRY_CONFIG.retryablePatterns.some(p => p.test(lastErrBody));
+
+            if (isRetryable && attempt < RETRY_CONFIG.maxRetries) {
+              const delay = calculateRetryDelay(attempt, upstreamRes.headers);
+              console.warn(`[${new Date().toLocaleTimeString()}] [Upstream Retry ${attempt}/${RETRY_CONFIG.maxRetries}] HTTP ${upstreamRes.statusCode}. Waiting ${delay}ms before next attempt... Error: ${lastErrBody.slice(0, 100)}`);
+              await new Promise(r => setTimeout(r, delay));
+              continue;
+            }
+
+            res.writeHead(upstreamRes.statusCode, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              error: {
+                message: `OpenCode Upstream Error (${upstreamRes.statusCode}): ${lastErrBody}`,
+                type: 'upstream_error'
+              }
+            }));
+            return;
+          } catch (netErr) {
+            console.warn(`[${new Date().toLocaleTimeString()}] [Connection Error attempt ${attempt}/${RETRY_CONFIG.maxRetries}] ${currentUpstream}: ${netErr.message}`);
+
+            // On network error, check if another relay is available
+            const nextIdx = getAvailableUpstreamIndex(pool, activeUpstreamIdx + 1);
+            if (pool.length > 1 && nextIdx !== activeUpstreamIdx) {
+              console.log(`[${new Date().toLocaleTimeString()}] [Net Failover] Relay error, switching immediately to next relay: ${pool[nextIdx]}`);
+              activeUpstreamIdx = nextIdx;
+              continue;
+            }
+
+            if (attempt < RETRY_CONFIG.maxRetries) {
+              const delay = calculateRetryDelay(attempt);
+              await new Promise(r => setTimeout(r, delay));
+              continue;
+            }
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              error: {
+                message: `Bridge connection error: ${netErr.message}`,
+                type: 'gateway_error'
+              }
+            }));
+            return;
+          }
         }
-      }
 
         if (clientRequestedStream) {
           res.writeHead(200, {
@@ -626,7 +725,15 @@ function startServer(port = PORT, host = HOST) {
       console.log('   🚀 OpenCode Dual Frontier Bridge (OpenAI-Compatible)');
       console.log('===========================================================');
       console.log(`   Status   : Online & Listening on http://${host}:${port}`);
-      console.log(`   Upstream : ${UPSTREAM_BASE}`);
+      const pool = getUpstreamPool();
+      if (pool.length > 1) {
+        console.log(`   Upstreams (${pool.length} Relays Failover Pool):`);
+        pool.forEach((u, i) => {
+          console.log(`     [${i + 1}] ${u}`);
+        });
+      } else {
+        console.log(`   Upstream : ${pool[0] || 'https://opencode.ai'}`);
+      }
       console.log('   Models   :');
       (config.supportedModels || []).forEach((m, i) => {
         console.log(`     [${i + 1}] ${m.id.padEnd(14)} (${m.name} - ${(m.contextWindow / 1000).toLocaleString()}k context)`);
@@ -657,6 +764,9 @@ module.exports = {
   HOST,
   PROXY_URL,
   UPSTREAM_BASE,
+  UPSTREAM_POOL,
+  getUpstreamPool,
+  upstreamCooldowns,
   OPENCODE_CHAT_URL,
   OPENCODE_CLIENT_UA,
   genSessionID,

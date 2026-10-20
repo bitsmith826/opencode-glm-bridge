@@ -91,12 +91,13 @@ Arahkan editor AI Anda (Cursor / Cline / Roo Code):
 
 ---
 
-## 🛡️ Solusi Anti-Limit: Cloudflare Worker Relay (Opsional)
+## 🛡️ Solusi Anti-Limit & Anti-429: Multi-Relay Failover (Rekomendasi Utama)
 
-Jika koneksi ISP lokal Anda terkena proteksi anti-bot Cloudflare OpenCode, gunakan Cloudflare Worker Relay (100.000 Request GRATIS per hari):
+OpenCode membatasi kuota harian tier gratis per IP Egress. Jika satu relay terkena limit (`HTTP 429 FreeUsageLimitError`), Bridge dilengkapi dengan **Smart Multi-Upstream Failover** yang secara otomatis beralih seketika (0ms) ke relay berikutnya di dalam pool tanpa menghentikan pekerjaan client!
 
-1. Buat Worker baru di [dash.cloudflare.com](https://dash.cloudflare.com).
-2. Salin kode relay berikut ke Worker Anda:
+### 1. Buat 1 atau Lebih Cloudflare Worker Relay (Gratis 100.000 req/hari per akun)
+1. Buka [dash.cloudflare.com](https://dash.cloudflare.com) ➡️ Masuk ke **Workers & Pages** ➡️ **Create Worker**.
+2. Masukkan kode relay berikut:
    ```javascript
    export default {
      async fetch(request) {
@@ -105,6 +106,10 @@ Jika koneksi ISP lokal Anda terkena proteksi anti-bot Cloudflare OpenCode, gunak
 
        const newHeaders = new Headers(request.headers);
        newHeaders.set("Host", "opencode.ai");
+       // Hapus header pelacak IP asal agar OpenCode melihat IP anycast Cloudflare yang bersih
+       newHeaders.delete("cf-connecting-ip");
+       newHeaders.delete("x-forwarded-for");
+       newHeaders.delete("x-real-ip");
 
        return fetch(url.toString(), {
          method: request.method,
@@ -115,13 +120,20 @@ Jika koneksi ISP lokal Anda terkena proteksi anti-bot Cloudflare OpenCode, gunak
      }
    };
    ```
-3. Set URL publik worker Anda di environment variable `OPENCODE_UPSTREAM_URL` atau di file privat `config.local.json`:
-   ```json
-   {
-     "upstreamUrl": "http://my-relay.namaanda.workers.dev"
-   }
-   ```
-   *(File `config.local.json` otomatis diabaikan oleh Git sehingga URL pribadi Anda aman).*
+3. Deploy worker. Anda bisa membuat 2 atau 3 worker untuk melipatgandakan kuota (misal: `relay1.workers.dev`, `relay2.workers.dev`).
+
+### 2. Konfigurasi Multi-Relay di Bridge:
+Tambahkan daftar relay Anda ke `upstreamUrls` di `config.local.json` (atau via ENV `OPENCODE_UPSTREAM_URLS`):
+```json
+{
+  "upstreamUrls": [
+    "http://relay-1.workers.dev",
+    "http://relay-2.workers.dev"
+  ]
+}
+```
+* **Instant Hot-Swap (0ms):** Jika Relay 1 terkena 429 kuota harian, bridge otomatis loncat ke Relay 2.
+* **Anti-Freeze (Fail-Fast):** Jika seluruh relay habis, bridge langsung mengabari dalam <100ms tanpa membekukan editor AI selama 2.5 menit.
 
 ---
 
