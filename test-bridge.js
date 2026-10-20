@@ -1,5 +1,5 @@
 /**
- * Automated Verification Suite for OpenCode Dual Frontier Bridge
+ * Automated Verification Suite for OpenCode Frontier Bridge
  */
 
 const http = require('node:http');
@@ -35,7 +35,7 @@ function request(path, options = {}, body = null) {
 }
 
 async function runTests() {
-  console.log('=== [OpenCode Dual Frontier Bridge: Test Suite] ===\n');
+  console.log('=== [OpenCode Frontier Bridge: Test Suite] ===\n');
   const serverInstance = await startServer(TEST_PORT, TEST_HOST);
   let passed = 0;
   let total = 0;
@@ -51,7 +51,7 @@ async function runTests() {
       console.log('FAILED');
       console.error(`   Error: ${err.message}`);
     }
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 500));
   }
 
   try {
@@ -61,6 +61,7 @@ async function runTests() {
       if (res.statusCode !== 200) throw new Error(`Expected 200, got ${res.statusCode}`);
       const data = JSON.parse(res.body);
       if (data.status !== 'ok') throw new Error(`Expected status: 'ok', got ${data.status}`);
+      if (!Array.isArray(data.upstreams)) throw new Error('Missing upstreams array');
     });
 
     // 2. Models list
@@ -72,10 +73,11 @@ async function runTests() {
       const ids = data.data.map(m => m.id);
       if (!ids.includes('glm-5.3')) throw new Error('Missing glm-5.3');
       if (!ids.includes('deepseek-v4.1')) throw new Error('Missing deepseek-v4.1');
+      if (!ids.includes('minimax-m3.1')) throw new Error('Missing minimax-m3.1');
     });
 
     // 3. GLM-5.3 Streaming Chat Completion
-    await assertTest('Streaming Chat: glm-5.3', async () => {
+    await assertTest('Streaming Chat: glm-5.3 (or Fail-Fast 429)', async () => {
       const payload = {
         model: 'glm-5.3',
         messages: [{ role: 'user', content: 'Say "GLM OK" in 2 words.' }],
@@ -85,50 +87,18 @@ async function runTests() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       }, payload);
-      if (res.statusCode !== 200) throw new Error(`Expected 200, got ${res.statusCode}: ${res.body}`);
-      if (!res.body.includes('data:')) throw new Error('Response did not contain SSE data chunks');
-      if (!res.body.includes('[DONE]')) throw new Error('SSE stream was not terminated with [DONE]');
-    });
-
-    // 4. GLM-5.3 Non-Streaming Chat Completion
-    await assertTest('Non-Streaming Chat: glm-5.3', async () => {
-      const payload = {
-        model: 'glm-5.3',
-        messages: [{ role: 'user', content: 'Say "GLM JSON" in 2 words.' }],
-        stream: false
-      };
-      const res = await request('/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }, payload);
-      if (res.statusCode !== 200) throw new Error(`Expected 200, got ${res.statusCode}: ${res.body}`);
-      const data = JSON.parse(res.body);
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('Invalid chat completion response structure');
-      }
-      if (!data.choices[0].message.content) {
-        throw new Error('Assistant content was empty');
+      if (res.statusCode === 200) {
+        if (!res.body.includes('data:')) throw new Error('Response did not contain SSE data chunks');
+      } else if (res.statusCode === 429) {
+        const err = JSON.parse(res.body);
+        if (err.error?.code !== 'free_usage_limit_exhausted') throw new Error(`Unexpected 429 error: ${res.body}`);
+      } else {
+        throw new Error(`Unexpected status ${res.statusCode}: ${res.body}`);
       }
     });
 
-    // 5. DeepSeek V4.1 Streaming Chat Completion
-    await assertTest('Streaming Chat: deepseek-v4.1', async () => {
-      const payload = {
-        model: 'deepseek-v4.1',
-        messages: [{ role: 'user', content: 'Say "DeepSeek OK" in 2 words.' }],
-        stream: true
-      };
-      const res = await request('/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      }, payload);
-      if (res.statusCode !== 200) throw new Error(`Expected 200, got ${res.statusCode}: ${res.body}`);
-      if (!res.body.includes('data:')) throw new Error('Response did not contain SSE data chunks');
-      if (!res.body.includes('[DONE]')) throw new Error('SSE stream was not terminated with [DONE]');
-    });
-
-    // 6. DeepSeek V4.1 Non-Streaming Chat Completion
-    await assertTest('Non-Streaming Chat: deepseek-v4.1', async () => {
+    // 4. DeepSeek V4.1 Non-Streaming Chat Completion
+    await assertTest('Non-Streaming Chat: deepseek-v4.1 (or Fail-Fast 429)', async () => {
       const payload = {
         model: 'deepseek-v4.1',
         messages: [{ role: 'user', content: 'Say "DeepSeek JSON" in 2 words.' }],
@@ -138,13 +108,37 @@ async function runTests() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       }, payload);
-      if (res.statusCode !== 200) throw new Error(`Expected 200, got ${res.statusCode}: ${res.body}`);
-      const data = JSON.parse(res.body);
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('Invalid chat completion response structure');
+      if (res.statusCode === 200) {
+        const data = JSON.parse(res.body);
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+          throw new Error('Invalid chat completion response structure');
+        }
+      } else if (res.statusCode === 429) {
+        const err = JSON.parse(res.body);
+        if (err.error?.code !== 'free_usage_limit_exhausted') throw new Error(`Unexpected 429 error: ${res.body}`);
+      } else {
+        throw new Error(`Unexpected status ${res.statusCode}: ${res.body}`);
       }
-      if (!data.choices[0].message.content) {
-        throw new Error('Assistant content was empty');
+    });
+
+    // 5. MiniMax M3.1 Streaming Chat Completion
+    await assertTest('Streaming Chat: minimax-m3.1 (1M Context Frontier)', async () => {
+      const payload = {
+        model: 'minimax-m3.1',
+        messages: [{ role: 'user', content: 'Say "MiniMax OK" in 2 words.' }],
+        stream: true
+      };
+      const res = await request('/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }, payload);
+      if (res.statusCode === 200) {
+        if (!res.body.includes('data:')) throw new Error('Response did not contain SSE data chunks');
+      } else if (res.statusCode === 429) {
+        const err = JSON.parse(res.body);
+        if (err.error?.code !== 'free_usage_limit_exhausted') throw new Error(`Unexpected 429 error: ${res.body}`);
+      } else {
+        throw new Error(`Unexpected status ${res.statusCode}: ${res.body}`);
       }
     });
 

@@ -1,10 +1,30 @@
-# OpenCode Dual Frontier Bridge (OpenAI-Compatible)
+# OpenCode Frontier Bridge (OpenAI-Compatible)
 
-Jembatan API mandiri (Zero-Dependency) untuk menghubungkan berbagai editor AI (**Cursor**, **Cline**, **Roo Code**, **Continue**, **Aider**, atau **9Router**) ke dua model frontier terbaik:
-1. **`glm-5.3`** (Zhipu AI Multimodal Reasoning - Standar Resmi 200K Konteks, 32K Output)
-2. **`deepseek-v4.1`** (DeepSeek AI Coding Specialist - Standar Resmi 200K Konteks, 32K Output)
+Jembatan API mandiri (Zero-Dependency) berkinerja tinggi untuk menghubungkan berbagai editor AI (**Cursor**, **Cline**, **Roo Code**, **Continue**, **Aider**, atau **9Router**) ke model-model frontier OpenCode:
+1. **`minimax-m3.1`** (MiniMax M3.1 Flash Free - **1.000.000 Konteks**, **512.000 Output**, Multimodal + Deep Thinking)
+2. **`glm-5.3`** (Zhipu AI GLM-5.3 Flash Free - **200.000 Konteks**, **32.000 Output**, Multimodal Teks/Gambar/Video/PDF)
+3. **`deepseek-v4.1`** (DeepSeek V4.1 Flash Free - **200.000 Konteks**, **32.000 Output**, Coding & Speculative Reasoning)
+4. Serta model aktif lainnya: `mimo-v2.6`, `beam` (501B MoE 1M ctx), `cat-jam`, `big-pickle`, `longcat-2.5`, dan seri `nemotron-3.5`.
 
 **100% Mandiri:** Tanpa perlu install software OpenCode, tanpa perlu akun berbayar!
+
+---
+
+## 📋 Daftar Model yang Didukung
+
+| Model ID | Nama Resmi Upstream | Context Window | Max Output | Fitur Unggulan |
+|---|---|:---:|:---:|---|
+| `minimax-m3.1` | `minimax-m3.1-flash-free` | **1.000.000** (1M) | **512.000** | Teks, Gambar, Video, Deep Thinking (`reasoning_content`) |
+| `glm-5.3` | `glm-5.3-flash-free` | **200.000** | **32.000** | Teks, Gambar, Video, PDF |
+| `deepseek-v4.1` | `deepseek-v4.1-flash-free` | **200.000** | **32.000** | Teks, Gambar, Native Speculative Reasoning |
+| `mimo-v2.6` | `mimo-v2.6-flash-free` | **200.000** | **32.000** | Full Omni (Teks, Gambar, Audio, Video) |
+| `beam` | `beam-free` | **1.048.576** (1M) | **131.072** | Sparse MoE 501B Parameter (23B Active) |
+| `cat-jam` | `cat-jam-free` | **1.048.576** (1M) | **131.072** | Structured JSON & Tool Calling |
+| `big-pickle` | `big-pickle` | **200.000** | **32.000** | Step-by-step deliberate reasoning |
+| `longcat-2.5` | `longcat-2.5-preview-free` | **1.000.000** (1M) | **131.072** | Teks, Gambar + 1M Context |
+| `nemotron-3.5-super-vl` | `nemotron-3.5-super-vl-free` | **1.048.576** (1M) | **131.072** | Vision-Language MoE 120B |
+| `nemotron-3.5-lightning` | `nemotron-3.5-lightning-free` | **262.144** | **262.144** | Fast NVIDIA MoE |
+| `nemotron-3-ultra` | `nemotron-3-ultra-free` | **1.000.000** (1M) | **128.000** | 550B Flagship Reasoning |
 
 ---
 
@@ -39,7 +59,6 @@ services:
     container_name: opencode-bridge
     restart: unless-stopped
     environment:
-      # Opsional: Jika memakai Cloudflare Worker relay (bisa lewat .env)
       - OPENCODE_UPSTREAM_URL=${OPENCODE_UPSTREAM_URL:-https://opencode.ai}
     networks:
       - gateway-net
@@ -63,10 +82,8 @@ docker compose up -d
    * **Prefix:** `opencode-free`
    * **Base URL:** `http://opencode-bridge:8318/v1`
    * **API Key:** `free` *(bebas isi sembarang teks)*
-   * **Enabled Models:** Centang/tambahkan:
-     * `glm-5.3`
-     * `deepseek-v4.1`
-3. Klik **Save**. Kedua model siap dipakai di semua client AI Anda via endpoint 9Router!
+   * **Enabled Models:** Pilih model yang diinginkan (misal: `minimax-m3.1`, `glm-5.3`, `deepseek-v4.1`, `beam`).
+3. Klik **Save**. Model siap dipakai di semua client AI Anda via endpoint 9Router!
 
 ---
 
@@ -87,59 +104,56 @@ Arahkan editor AI Anda (Cursor / Cline / Roo Code):
 * **API Provider:** `OpenAI Compatible`
 * **Base URL:** `http://127.0.0.1:8318/v1`
 * **API Key:** `dummy` *(bebas)*
-* **Model:** `glm-5.3` atau `deepseek-v4.1`
+* **Model:** `minimax-m3.1`, `glm-5.3`, atau `deepseek-v4.1`
 
 ---
 
-## 🛡️ Solusi Anti-Limit & Anti-429: Multi-Relay Failover (Rekomendasi Utama)
+## 🛡️ Solusi Anti-Limit & Anti-429: Multi-Relay Failover
 
 OpenCode membatasi kuota harian tier gratis per IP Egress. Jika satu relay terkena limit (`HTTP 429 FreeUsageLimitError`), Bridge dilengkapi dengan **Smart Multi-Upstream Failover** yang secara otomatis beralih seketika (0ms) ke relay berikutnya di dalam pool tanpa menghentikan pekerjaan client!
 
-### 1. Buat 1 atau Lebih Cloudflare Worker Relay (Gratis 100.000 req/hari per akun)
-1. Buka [dash.cloudflare.com](https://dash.cloudflare.com) ➡️ Masuk ke **Workers & Pages** ➡️ **Create Worker**.
-2. Masukkan kode relay berikut:
-   ```javascript
-   export default {
-     async fetch(request) {
-       const url = new URL(request.url);
-       url.hostname = "opencode.ai";
+### 1. Buat Cloudflare Worker Relay
+Gunakan script worker berikut:
+```javascript
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    url.hostname = "opencode.ai";
 
-       const newHeaders = new Headers(request.headers);
-       newHeaders.set("Host", "opencode.ai");
-       // Hapus header pelacak IP asal agar OpenCode melihat IP anycast Cloudflare yang bersih
-       newHeaders.delete("cf-connecting-ip");
-       newHeaders.delete("x-forwarded-for");
-       newHeaders.delete("x-real-ip");
+    const newHeaders = new Headers(request.headers);
+    newHeaders.set("Host", "opencode.ai");
+    newHeaders.delete("cf-connecting-ip");
+    newHeaders.delete("x-forwarded-for");
+    newHeaders.delete("x-real-ip");
 
-       return fetch(url.toString(), {
-         method: request.method,
-         headers: newHeaders,
-         body: request.body,
-         redirect: "follow"
-       });
-     }
-   };
-   ```
-3. Deploy worker. Anda bisa membuat 2 atau 3 worker untuk melipatgandakan kuota (misal: `relay1.workers.dev`, `relay2.workers.dev`).
+    return fetch(url.toString(), {
+      method: request.method,
+      headers: newHeaders,
+      body: request.body,
+      redirect: "follow"
+    });
+  }
+};
+```
 
 ### 2. Konfigurasi Multi-Relay di Bridge:
-Tambahkan daftar relay Anda ke `upstreamUrls` di `config.local.json` (atau via ENV `OPENCODE_UPSTREAM_URLS`):
+Tambahkan daftar relay Anda ke `upstreamUrls` di `config.local.json`:
 ```json
 {
   "upstreamUrls": [
-    "http://relay-1.workers.dev",
-    "http://relay-2.workers.dev"
+    "https://relay-1.workers.dev",
+    "https://relay-2.workers.dev"
   ]
 }
 ```
 * **Instant Hot-Swap (0ms):** Jika Relay 1 terkena 429 kuota harian, bridge otomatis loncat ke Relay 2.
-* **Anti-Freeze (Fail-Fast):** Jika seluruh relay habis, bridge langsung mengabari dalam <100ms tanpa membekukan editor AI selama 2.5 menit.
+* **Anti-Freeze (Fail-Fast):** Jika seluruh relay habis, bridge langsung mengabari dalam <100ms tanpa membekukan editor AI.
 
 ---
 
 ## 🧪 Uji Coba Cepat (Test Suite)
 
-Jalankan test suite untuk memverifikasi fungsionalitas streaming dan non-streaming:
+Jalankan test suite untuk memverifikasi fungsionalitas:
 ```bash
 npm test
 ```
