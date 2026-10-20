@@ -477,8 +477,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Model list discovery (/v1/models)
-  if (pathname === '/v1/models' && req.method === 'GET') {
+  // Model list discovery (/v1/models or /models)
+  if ((pathname === '/v1/models' || pathname === '/models') && req.method === 'GET') {
     const modelsData = [];
     const seen = new Set();
     for (const m of (config.supportedModels || [])) {
@@ -504,8 +504,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Chat completions endpoint (/v1/chat/completions)
-  if (pathname === '/v1/chat/completions' && req.method === 'POST') {
+  // Chat completions endpoint (/v1/chat/completions or /chat/completions)
+  if ((pathname === '/v1/chat/completions' || pathname === '/chat/completions') && req.method === 'POST') {
     const chunks = [];
     req.on('data', chunk => chunks.push(chunk));
     req.on('end', async () => {
