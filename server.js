@@ -446,7 +446,7 @@ function assembleSSE(rawLines, fallbackModel) {
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-requested-with');
+  res.setHeader('Access-Control-Allow-Headers', '*');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -683,6 +683,12 @@ const server = http.createServer(async (req, res) => {
             }
             res.end();
             console.log(`[${new Date().toLocaleTimeString()}] << [Completed] Stream selesai dikirim ke client (${requestedModel})`);
+          });
+
+          req.on('close', () => {
+            if (upstreamRes && !upstreamRes.destroyed) {
+              upstreamRes.destroy();
+            }
           });
 
           upstreamRes.on('error', err => {
