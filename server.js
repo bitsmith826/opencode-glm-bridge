@@ -197,8 +197,10 @@ const officialFingerprintTools = [
 function resolveUpstreamModel(clientModel) {
   if (!clientModel) return 'glm-5.3-flash-free';
   const clean = clientModel.replace(/^(opencode|opencode-free)\//, '').trim();
-  const found = (config.supportedModels || []).find(m => m.id === clean);
+  const found = (config.supportedModels || []).find(m => m.id === clean || m.upstreamId === clean);
   if (found && found.upstreamId) return found.upstreamId;
+
+  // Exact & friendly fallback aliases
   if (clean === 'glm-5.3' || clean === 'glm-5.3-flash' || clean === 'glm' || clean === 'glm-5.3-flash-free') return 'glm-5.3-flash-free';
   if (clean === 'deepseek' || clean === 'deepseek-v4.1' || clean === 'deepseek-v4' || clean === 'deepseek-v4.1-flash' || clean === 'deepseek-v4.1-flash-free') return 'deepseek-v4.1-flash-free';
   if (clean === 'minimax' || clean === 'minimax-m3.1' || clean === 'minimax-m3.1-flash' || clean === 'minimax-m3.1-flash-free') return 'minimax-m3.1-flash-free';
@@ -206,6 +208,10 @@ function resolveUpstreamModel(clientModel) {
   if (clean === 'beam' || clean === 'beam-free') return 'beam-free';
   if (clean === 'cat-jam' || clean === 'cat-jam-free') return 'cat-jam-free';
   if (clean === 'big-pickle') return 'big-pickle';
+  if (clean === 'longcat' || clean === 'longcat-2.5' || clean === 'longcat-2.5-preview' || clean === 'longcat-2.5-preview-free') return 'longcat-2.5-preview-free';
+  if (clean === 'nemotron-super-vl' || clean === 'nemotron-3.5-super-vl' || clean === 'nemotron-3.5-super-vl-free') return 'nemotron-3.5-super-vl-free';
+  if (clean === 'nemotron-lightning' || clean === 'nemotron-3.5-lightning' || clean === 'nemotron-3.5-lightning-free') return 'nemotron-3.5-lightning-free';
+  if (clean === 'nemotron-ultra' || clean === 'nemotron-3-ultra' || clean === 'nemotron-3-ultra-free') return 'nemotron-3-ultra-free';
   return clean;
 }
 
@@ -473,15 +479,42 @@ const server = http.createServer(async (req, res) => {
 
   // Model list discovery (/v1/models)
   if (pathname === '/v1/models' && req.method === 'GET') {
-    const modelsData = (config.supportedModels || []).map(m => ({
-      id: m.id,
-      object: 'model',
-      created: 1710000000,
-      owned_by: 'opencode',
-      permission: [],
-      root: m.id,
-      parent: null
-    }));
+    const modelsData = [];
+    const seen = new Set();
+    for (const m of (config.supportedModels || [])) {
+      if (!seen.has(m.id)) {
+        seen.add(m.id);
+        modelsData.push({
+          id: m.id,
+          object: 'model',
+          created: 1710000000,
+          owned_by: 'opencode',
+          name: m.name,
+          upstream_id: m.upstreamId,
+          context_window: m.contextWindow,
+          max_output_tokens: m.maxOutput,
+          permission: [],
+          root: m.id,
+          parent: null
+        });
+      }
+      if (m.upstreamId && !seen.has(m.upstreamId)) {
+        seen.add(m.upstreamId);
+        modelsData.push({
+          id: m.upstreamId,
+          object: 'model',
+          created: 1710000000,
+          owned_by: 'opencode',
+          name: m.name,
+          upstream_id: m.upstreamId,
+          context_window: m.contextWindow,
+          max_output_tokens: m.maxOutput,
+          permission: [],
+          root: m.upstreamId,
+          parent: null
+        });
+      }
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ object: 'list', data: modelsData }, null, 2));
     return;
@@ -741,7 +774,9 @@ function startServer(port = PORT, host = HOST) {
       }
       console.log('   Models   :');
       (config.supportedModels || []).forEach((m, i) => {
-        console.log(`     [${i + 1}] ${m.id.padEnd(14)} (${m.name} - ${(m.contextWindow / 1000).toLocaleString()}k context)`);
+        const ctxStr = m.contextWindow >= 1000000 ? `${(m.contextWindow / 1000000).toFixed(m.contextWindow % 1000000 === 0 ? 0 : 1)}M` : `${Math.round(m.contextWindow / 1000)}k`;
+        const outStr = m.maxOutput >= 1000 ? `${Math.round(m.maxOutput / 1000)}k` : `${m.maxOutput}`;
+        console.log(`     [${(i + 1).toString().padStart(2)}] ${m.id.padEnd(23)} (${m.name} | ${ctxStr} ctx / ${outStr} out)`);
       });
       console.log('-----------------------------------------------------------');
       console.log('   Client Settings (Cursor / Cline / 9Router):');
