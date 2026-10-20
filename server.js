@@ -201,6 +201,9 @@ function resolveUpstreamModel(clientModel) {
   if (found && found.upstreamId) return found.upstreamId;
   if (clean === 'glm-5.3' || clean === 'glm-5.3-flash' || clean === 'glm' || clean === 'glm-5.3-flash-free') return 'glm-5.3-flash-free';
   if (clean === 'deepseek' || clean === 'deepseek-v4.1' || clean === 'deepseek-v4' || clean === 'deepseek-v4.1-flash' || clean === 'deepseek-v4.1-flash-free') return 'deepseek-v4.1-flash-free';
+  if (clean === 'minimax' || clean === 'minimax-m3.1' || clean === 'minimax-m3.1-flash' || clean === 'minimax-m3.1-flash-free') return 'minimax-m3.1-flash-free';
+  if (clean === 'mimo' || clean === 'mimo-v2.6' || clean === 'mimo-v2.6-flash' || clean === 'mimo-v2.6-flash-free') return 'mimo-v2.6-flash-free';
+  if (clean === 'beam' || clean === 'beam-free') return 'beam-free';
   return clean;
 }
 

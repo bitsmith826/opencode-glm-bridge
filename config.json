@@ -20,6 +20,27 @@
       "name": "DeepSeek V4.1 Flash",
       "contextWindow": 200000,
       "maxOutput": 32000
+    },
+    {
+      "id": "minimax-m3.1",
+      "upstreamId": "minimax-m3.1-flash-free",
+      "name": "MiniMax M3.1 Flash Free",
+      "contextWindow": 1000000,
+      "maxOutput": 512000
+    },
+    {
+      "id": "mimo-v2.6",
+      "upstreamId": "mimo-v2.6-flash-free",
+      "name": "Xiaomi MiMo V2.6 Flash Free",
+      "contextWindow": 200000,
+      "maxOutput": 32000
+    },
+    {
+      "id": "beam",
+      "upstreamId": "beam-free",
+      "name": "Beam Free",
+      "contextWindow": 1048576,
+      "maxOutput": 131072
     }
   ]
 }
