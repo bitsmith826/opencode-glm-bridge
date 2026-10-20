@@ -498,22 +498,6 @@ const server = http.createServer(async (req, res) => {
           parent: null
         });
       }
-      if (m.upstreamId && !seen.has(m.upstreamId)) {
-        seen.add(m.upstreamId);
-        modelsData.push({
-          id: m.upstreamId,
-          object: 'model',
-          created: 1710000000,
-          owned_by: 'opencode',
-          name: m.name,
-          upstream_id: m.upstreamId,
-          context_window: m.contextWindow,
-          max_output_tokens: m.maxOutput,
-          permission: [],
-          root: m.upstreamId,
-          parent: null
-        });
-      }
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ object: 'list', data: modelsData }, null, 2));
