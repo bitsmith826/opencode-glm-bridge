@@ -201,10 +201,10 @@ function resolveUpstreamModel(clientModel) {
   if (found && found.upstreamId) return found.upstreamId;
 
   // Exact & friendly fallback aliases
-  if (clean === 'glm-5.3' || clean === 'glm-5.3-flash' || clean === 'glm' || clean === 'glm-5.3-flash-free') return 'glm-5.3-flash-free';
-  if (clean === 'deepseek' || clean === 'deepseek-v4.1' || clean === 'deepseek-v4' || clean === 'deepseek-v4.1-flash' || clean === 'deepseek-v4.1-flash-free') return 'deepseek-v4.1-flash-free';
-  if (clean === 'minimax' || clean === 'minimax-m3.1' || clean === 'minimax-m3.1-flash' || clean === 'minimax-m3.1-flash-free') return 'minimax-m3.1-flash-free';
-  if (clean === 'mimo' || clean === 'mimo-v2.6' || clean === 'mimo-v2.6-flash' || clean === 'mimo-v2.6-flash-free') return 'mimo-v2.6-flash-free';
+  if (clean === 'glm-5.3' || clean === 'glm5.3' || clean === 'glm53' || clean === 'glm-5.3-flash' || clean === 'glm' || clean === 'glm-5.3-flash-free') return 'glm-5.3-flash-free';
+  if (clean === 'deepseek' || clean === 'deepseek-v4.1' || clean === 'deepseekv4.1' || clean === 'deepseekv41' || clean === 'deepseek-v4' || clean === 'deepseekv4' || clean === 'deepseek-v4.1-flash' || clean === 'deepseek-v4.1-flash-free') return 'deepseek-v4.1-flash-free';
+  if (clean === 'minimax' || clean === 'minimax-m3.1' || clean === 'minimaxm3.1' || clean === 'minimaxm31' || clean === 'minimax-m3.1-flash' || clean === 'minimax-m3.1-flash-free') return 'minimax-m3.1-flash-free';
+  if (clean === 'mimo' || clean === 'mimo-v2.6' || clean === 'mimov2.6' || clean === 'mimov26' || clean === 'mimo-v2.6-flash' || clean === 'mimo-v2.6-flash-free') return 'mimo-v2.6-flash-free';
   if (clean === 'beam' || clean === 'beam-free') return 'beam-free';
   if (clean === 'cat-jam' || clean === 'cat-jam-free') return 'cat-jam-free';
   if (clean === 'big-pickle') return 'big-pickle';
@@ -212,6 +212,7 @@ function resolveUpstreamModel(clientModel) {
   if (clean === 'nemotron-super-vl' || clean === 'nemotron-3.5-super-vl' || clean === 'nemotron-3.5-super-vl-free') return 'nemotron-3.5-super-vl-free';
   if (clean === 'nemotron-lightning' || clean === 'nemotron-3.5-lightning' || clean === 'nemotron-3.5-lightning-free') return 'nemotron-3.5-lightning-free';
   if (clean === 'nemotron-ultra' || clean === 'nemotron-3-ultra' || clean === 'nemotron-3-ultra-free') return 'nemotron-3-ultra-free';
+  if (clean === 'flint' || clean === 'flint-40b' || clean === 'flint-40b-free') return 'flint-40b-free';
   return clean;
 }
 

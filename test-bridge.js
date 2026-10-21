@@ -69,11 +69,12 @@ async function runTests() {
       const res = await request('/v1/models');
       if (res.statusCode !== 200) throw new Error(`Expected 200, got ${res.statusCode}`);
       const data = JSON.parse(res.body);
-      if (!Array.isArray(data.data) || data.data.length === 0) throw new Error('Models array is empty');
+      if (!Array.isArray(data.data) || data.data.length !== 4) throw new Error(`Expected exactly 4 models, got ${data.data?.length}`);
       const ids = data.data.map(m => m.id);
       if (!ids.includes('glm-5.3-flash-free')) throw new Error('Missing glm-5.3-flash-free');
       if (!ids.includes('deepseek-v4.1-flash-free')) throw new Error('Missing deepseek-v4.1-flash-free');
       if (!ids.includes('minimax-m3.1-flash-free')) throw new Error('Missing minimax-m3.1-flash-free');
+      if (!ids.includes('mimo-v2.6-flash-free')) throw new Error('Missing mimo-v2.6-flash-free');
     });
 
     // 3. GLM-5.3 Streaming Chat Completion

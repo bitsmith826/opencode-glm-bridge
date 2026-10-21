@@ -1,30 +1,26 @@
 # OpenCode Frontier Bridge (OpenAI-Compatible)
 
-Jembatan API mandiri (Zero-Dependency) berkinerja tinggi untuk menghubungkan berbagai editor AI (**Cursor**, **Cline**, **Roo Code**, **Continue**, **Aider**, atau **9Router**) ke model-model frontier OpenCode:
-1. **`minimax-m3.1`** (MiniMax M3.1 Flash Free - **1.000.000 Konteks**, **512.000 Output**, Multimodal + Deep Thinking)
-2. **`glm-5.3`** (Zhipu AI GLM-5.3 Flash Free - **200.000 Konteks**, **32.000 Output**, Multimodal Teks/Gambar/Video/PDF)
-3. **`deepseek-v4.1`** (DeepSeek V4.1 Flash Free - **200.000 Konteks**, **32.000 Output**, Coding & Speculative Reasoning)
-4. Serta model aktif lainnya: `mimo-v2.6`, `beam` (501B MoE 1M ctx), `cat-jam`, `big-pickle`, `longcat-2.5`, dan seri `nemotron-3.5`.
+Jembatan API mandiri (Zero-Dependency) berkinerja tinggi untuk menghubungkan berbagai editor AI (**Cursor**, **Cline**, **Roo Code**, **Continue**, **Aider**, atau **9Router**) ke 4 model frontier utama OpenCode:
+1. **`glm-5.3`** (Zhipu AI GLM-5.3 Flash Free - **200.000 Konteks**, **32.000 Output**, Multimodal Teks/Gambar/Video/PDF)
+2. **`deepseek-v4.1`** (DeepSeek V4.1 Flash Free - **200.000 Konteks**, **32.000 Output**, Coding & Speculative Reasoning)
+3. **`minimax-m3.1`** (MiniMax M3.1 Flash Free - **1.000.000 Konteks**, **512.000 Output**, Multimodal + Deep Thinking)
+4. **`mimo-v2.6`** (Xiaomi MiMo-V2.6 Flash Free - **200.000 Konteks**, **32.000 Output**, Full Omni Teks/Gambar/Audio/Video)
 
 **100% Mandiri:** Tanpa perlu install software OpenCode, tanpa perlu akun berbayar!
 
 ---
 
-## 📋 Daftar Model yang Didukung
+## 📋 4 Model Utama yang Didukung
 
 | Model ID | Nama Resmi Upstream | Context Window | Max Output | Fitur Unggulan |
 |---|---|:---:|:---:|---|
-| `minimax-m3.1` | `minimax-m3.1-flash-free` | **1.000.000** (1M) | **512.000** | Teks, Gambar, Video, Deep Thinking (`reasoning_content`) |
 | `glm-5.3` | `glm-5.3-flash-free` | **200.000** | **32.000** | Teks, Gambar, Video, PDF |
 | `deepseek-v4.1` | `deepseek-v4.1-flash-free` | **200.000** | **32.000** | Teks, Gambar, Native Speculative Reasoning |
+| `minimax-m3.1` | `minimax-m3.1-flash-free` | **1.000.000** (1M) | **512.000** | Teks, Gambar, Video, Deep Thinking (`reasoning_content`) |
 | `mimo-v2.6` | `mimo-v2.6-flash-free` | **200.000** | **32.000** | Full Omni (Teks, Gambar, Audio, Video) |
-| `beam` | `beam-free` | **1.048.576** (1M) | **131.072** | Sparse MoE 501B Parameter (23B Active) |
-| `cat-jam` | `cat-jam-free` | **1.048.576** (1M) | **131.072** | Structured JSON & Tool Calling |
-| `big-pickle` | `big-pickle` | **200.000** | **32.000** | Step-by-step deliberate reasoning |
-| `longcat-2.5` | `longcat-2.5-preview-free` | **1.000.000** (1M) | **131.072** | Teks, Gambar + 1M Context |
-| `nemotron-3.5-super-vl` | `nemotron-3.5-super-vl-free` | **1.048.576** (1M) | **131.072** | Vision-Language MoE 120B |
-| `nemotron-3.5-lightning` | `nemotron-3.5-lightning-free` | **262.144** | **262.144** | Fast NVIDIA MoE |
-| `nemotron-3-ultra` | `nemotron-3-ultra-free` | **1.000.000** (1M) | **128.000** | 550B Flagship Reasoning |
+
+> [!NOTE]
+> Mendukung berbagai variasi penulisan alias di client (misal: `glm-5.3` / `glm5.3`, `deepseek-v4.1` / `deepseekv4.1`, `minimax-m3.1` / `minimaxm31`, `mimo-v2.6` / `mimov2.6`). Dropdown di Cline dan Cursor dijamin bersih tanpa model ganda.
 
 ---
 
@@ -137,10 +133,11 @@ export default {
 ```
 
 ### 2. Konfigurasi Multi-Relay di Bridge:
-Tambahkan daftar relay Anda ke `upstreamUrls` di `config.local.json`:
+Tambahkan daftar relay Anda ke `upstreamUrls` di `config.local.json`. Sangat disarankan menyertakan direct `https://opencode.ai` agar kuota IP lokal dapat digunakan bergantian dengan relay:
 ```json
 {
   "upstreamUrls": [
+    "https://opencode.ai",
     "https://relay-1.workers.dev",
     "https://relay-2.workers.dev"
   ]
