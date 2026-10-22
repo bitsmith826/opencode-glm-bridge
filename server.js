@@ -276,10 +276,10 @@ function cloakOpencodePayload(body) {
 
 function restoreToolNamesInLine(line, requestedModel = '') {
   if (line.includes('read_client')) {
-    line = line.replaceAll('read_client', 'read');
+    line = line.replace(/"name"\s*:\s*"read_client"/g, '"name":"read"');
   }
   if (line.includes('shell_client')) {
-    line = line.replaceAll('shell_client', 'shell');
+    line = line.replace(/"name"\s*:\s*"shell_client"/g, '"name":"shell"');
   }
   if (requestedModel && !requestedModel.includes('-free') && line.includes('-free')) {
     line = line.replace(/"model"\s*:\s*"[^"]+-free"/g, `"model":"${requestedModel}"`);
@@ -391,7 +391,8 @@ function assembleSSE(rawLines, fallbackModel) {
               toolCallsMap.set(idx, {
                 id: tc.id || `call_${crypto.randomBytes(6).toString('hex')}`,
                 type: 'function',
-                function: { name: '', arguments: '' }
+                function: { name: '', arguments: '' },
+                isClientTool: false
               });
             }
             const current = toolCallsMap.get(idx);
@@ -399,8 +400,15 @@ function assembleSSE(rawLines, fallbackModel) {
             if (tc.function) {
               if (tc.function.name) {
                 let fnName = tc.function.name;
-                if (fnName === 'read_client') fnName = 'read';
-                else if (fnName === 'shell_client') fnName = 'shell';
+                if (fnName === 'read_client') {
+                  fnName = 'read';
+                  current.isClientTool = true;
+                } else if (fnName === 'shell_client') {
+                  fnName = 'shell';
+                  current.isClientTool = true;
+                } else if (fnName !== 'read' && fnName !== 'shell') {
+                  current.isClientTool = true;
+                }
                 current.function.name = fnName;
               }
               if (tc.function.arguments) {
@@ -422,7 +430,7 @@ function assembleSSE(rawLines, fallbackModel) {
     message.reasoning_content = reasoning;
   }
 
-  const toolCalls = Array.from(toolCallsMap.values()).filter(t => t.function.name && t.function.name !== 'read' && t.function.name !== 'shell');
+  const toolCalls = Array.from(toolCallsMap.values()).filter(t => t.function.name && t.isClientTool);
   if (toolCalls.length > 0) {
     message.tool_calls = toolCalls;
   }
@@ -443,13 +451,39 @@ function assembleSSE(rawLines, fallbackModel) {
   };
 }
 
+// Safe local & webview Origin check for CORS protection
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  try {
+    const u = new URL(origin);
+    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]') return true;
+    if (u.protocol === 'vscode-webview:' || u.protocol === 'chrome-extension:' || u.protocol === 'moz-extension:') return true;
+  } catch (_) {}
+  return false;
+}
+
 // 7. HTTP Server & Route Handler
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin) {
+    if (isAllowedOrigin(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', 'null');
+    }
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
 
   if (req.method === 'OPTIONS') {
+    if (origin && !isAllowedOrigin(origin)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Cross-Origin Forbidden', type: 'access_denied' } }));
+      return;
+    }
     res.writeHead(204);
     res.end();
     return;
@@ -507,9 +541,52 @@ const server = http.createServer(async (req, res) => {
 
   // Chat completions endpoint (/v1/chat/completions or /chat/completions)
   if ((pathname === '/v1/chat/completions' || pathname === '/chat/completions') && req.method === 'POST') {
+    const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10MB payload limit
+    const contentLength = parseInt(req.headers['content-length'], 10);
+    if (!isNaN(contentLength) && contentLength > MAX_BODY_BYTES) {
+      res.writeHead(413, { 
+        'Content-Type': 'application/json',
+        'Connection': 'close'
+      });
+      res.end(JSON.stringify({
+        error: {
+          message: `Payload Too Large: request body exceeds maximum allowed limit of ${MAX_BODY_BYTES / (1024 * 1024)}MB`,
+          type: 'invalid_request_error'
+        }
+      }));
+      req.on('data', () => {});
+      req.resume();
+      return;
+    }
+
+    let receivedBytes = 0;
+    let exceeded = false;
     const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
+
+    req.on('data', chunk => {
+      if (exceeded) return;
+      receivedBytes += chunk.length;
+      if (receivedBytes > MAX_BODY_BYTES) {
+        exceeded = true;
+        res.writeHead(413, { 
+          'Content-Type': 'application/json',
+          'Connection': 'close'
+        });
+        res.end(JSON.stringify({
+          error: {
+            message: `Payload Too Large: request body exceeds maximum allowed limit of ${MAX_BODY_BYTES / (1024 * 1024)}MB`,
+            type: 'invalid_request_error'
+          }
+        }));
+        req.on('data', () => {});
+        req.resume();
+        return;
+      }
+      chunks.push(chunk);
+    });
+
     req.on('end', async () => {
+      if (exceeded) return;
       let body;
       try {
         const rawBody = Buffer.concat(chunks).toString('utf8');

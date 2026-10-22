@@ -29,7 +29,13 @@ function request(path, options = {}, body = null) {
       });
     });
     req.on('error', reject);
-    if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body));
+    if (body) {
+      if (Buffer.isBuffer(body) || typeof body === 'string') {
+        req.write(body);
+      } else {
+        req.write(JSON.stringify(body));
+      }
+    }
     req.end();
   });
 }
@@ -140,6 +146,54 @@ async function runTests() {
         if (err.error?.code !== 'free_usage_limit_exhausted') throw new Error(`Unexpected 429 error: ${res.body}`);
       } else {
         throw new Error(`Unexpected status ${res.statusCode}: ${res.body}`);
+      }
+    });
+
+    // 6. Security: CORS Origin Check
+    await assertTest('Security: CORS Preflight Origin Policy', async () => {
+      // Untrusted external origin should be blocked with 403
+      const untrustedRes = await request('/v1/chat/completions', {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': 'https://malicious-site.example',
+          'Access-Control-Request-Method': 'POST'
+        }
+      });
+      if (untrustedRes.statusCode !== 403) {
+        throw new Error(`Expected 403 for untrusted origin, got ${untrustedRes.statusCode}`);
+      }
+
+      // Local origin should be permitted with 204
+      const localRes = await request('/v1/chat/completions', {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': 'http://localhost:3000',
+          'Access-Control-Request-Method': 'POST'
+        }
+      });
+      if (localRes.statusCode !== 204) {
+        throw new Error(`Expected 204 for local origin, got ${localRes.statusCode}`);
+      }
+      if (localRes.headers['access-control-allow-origin'] !== 'http://localhost:3000') {
+        throw new Error(`Expected local origin reflected, got ${localRes.headers['access-control-allow-origin']}`);
+      }
+    });
+
+    // 7. Security: Body Size Limit (HTTP 413 Payload Too Large)
+    await assertTest('Security: Reject Oversized Body (>10MB) with 413', async () => {
+      const res = await request('/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': (11 * 1024 * 1024).toString()
+        }
+      });
+      if (res.statusCode !== 413) {
+        throw new Error(`Expected 413 Payload Too Large, got ${res.statusCode}`);
+      }
+      const data = JSON.parse(res.body);
+      if (!data.error?.message?.includes('Payload Too Large')) {
+        throw new Error(`Unexpected error message: ${res.body}`);
       }
     });
 
