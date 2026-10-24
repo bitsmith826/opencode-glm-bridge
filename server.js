@@ -203,7 +203,8 @@ function resolveUpstreamModel(clientModel) {
   // Exact & friendly fallback aliases
   if (clean === 'glm-5.3' || clean === 'glm5.3' || clean === 'glm53' || clean === 'glm-5.3-flash' || clean === 'glm' || clean === 'glm-5.3-flash-free') return 'glm-5.3-flash-free';
   if (clean === 'deepseek' || clean === 'deepseek-v4.1' || clean === 'deepseekv4.1' || clean === 'deepseekv41' || clean === 'deepseek-v4' || clean === 'deepseekv4' || clean === 'deepseek-v4.1-flash' || clean === 'deepseek-v4.1-flash-free') return 'deepseek-v4.1-flash-free';
-  if (clean === 'minimax' || clean === 'minimax-m3.1' || clean === 'minimaxm3.1' || clean === 'minimaxm31' || clean === 'minimax-m3.1-flash' || clean === 'minimax-m3.1-flash-free') return 'minimax-m3.1-flash-free';
+  // Note: minimax-m3.1-flash-free was deprecated by upstream OpenCode (HTTP 410) with instruction: "Use deepseek-v4.1-flash-free instead."
+  if (clean === 'minimax' || clean === 'minimax-m3.1' || clean === 'minimaxm3.1' || clean === 'minimaxm31' || clean === 'minimax-m3.1-flash' || clean === 'minimax-m3.1-flash-free') return 'deepseek-v4.1-flash-free';
   if (clean === 'mimo' || clean === 'mimo-v2.6' || clean === 'mimov2.6' || clean === 'mimov26' || clean === 'mimo-v2.6-flash' || clean === 'mimo-v2.6-flash-free') return 'mimo-v2.6-flash-free';
   if (clean === 'beam' || clean === 'beam-free') return 'beam-free';
   if (clean === 'cat-jam' || clean === 'cat-jam-free') return 'cat-jam-free';

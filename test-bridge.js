@@ -75,11 +75,10 @@ async function runTests() {
       const res = await request('/v1/models');
       if (res.statusCode !== 200) throw new Error(`Expected 200, got ${res.statusCode}`);
       const data = JSON.parse(res.body);
-      if (!Array.isArray(data.data) || data.data.length !== 4) throw new Error(`Expected exactly 4 models, got ${data.data?.length}`);
+      if (!Array.isArray(data.data) || data.data.length !== 3) throw new Error(`Expected exactly 3 models, got ${data.data?.length}`);
       const ids = data.data.map(m => m.id);
       if (!ids.includes('glm-5.3-flash-free')) throw new Error('Missing glm-5.3-flash-free');
       if (!ids.includes('deepseek-v4.1-flash-free')) throw new Error('Missing deepseek-v4.1-flash-free');
-      if (!ids.includes('minimax-m3.1-flash-free')) throw new Error('Missing minimax-m3.1-flash-free');
       if (!ids.includes('mimo-v2.6-flash-free')) throw new Error('Missing mimo-v2.6-flash-free');
     });
 
@@ -128,11 +127,11 @@ async function runTests() {
       }
     });
 
-    // 5. MiniMax M3.1 Streaming Chat Completion
-    await assertTest('Streaming Chat: minimax-m3.1 (1M Context Frontier)', async () => {
+    // 5. MiMo V2.6 Streaming Chat Completion
+    await assertTest('Streaming Chat: mimo-v2.6 (or Fail-Fast 429)', async () => {
       const payload = {
-        model: 'minimax-m3.1',
-        messages: [{ role: 'user', content: 'Say "MiniMax OK" in 2 words.' }],
+        model: 'mimo-v2.6',
+        messages: [{ role: 'user', content: 'Say "MiMo OK" in 2 words.' }],
         stream: true
       };
       const res = await request('/v1/chat/completions', {
